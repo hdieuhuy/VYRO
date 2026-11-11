@@ -27,6 +27,17 @@ test('a paused PiP clip remains selected while its source card is still in view'
   assert.equal(adapter.choose([{ video: held, area: 100, held: true }, { video: preload, area: 900 }]), preload);
 });
 
+test('PiP is available beyond feed routes without enabling automatic grid navigation', () => {
+  const emptyPage = { querySelectorAll: () => [] };
+  for (const route of ['/explore', '/search', '/@creator']) {
+    assert.equal(adapter.canOpenPip(route), true);
+    assert.equal(adapter.canAutoAdvance(route, emptyPage, () => 100), false);
+  }
+  for (const route of ['/live', '/@creator/live', '/@creator/photo/123', '/upload', '/messages', '/settings']) {
+    assert.equal(adapter.canOpenPip(route), false);
+  }
+});
+
 function navigation({ button, container, scrollingElement, pathname = '/foryou', stage = 0 } = {}) {
   const doc = { body: {}, scrollingElement, querySelectorAll: selector => {
     assert.ok(selector.includes('arrow-right'));
@@ -55,9 +66,67 @@ test('disabled navigation does not click or invent another video URL', () => {
 
 test('fallback scrolls the next source card, not a PiP child', () => {
   let scrolls = 0;
-  const container = { nextElementSibling: { matches: () => true, scrollIntoView: () => scrolls++ } };
+  const container = { nextElementSibling: { matches: selector => selector.startsWith('article'), scrollIntoView: () => scrolls++ } };
   assert.equal(navigation({ container, stage: 1 }), true);
   assert.equal(scrolls, 1);
+});
+
+test('LIVE detection does not confuse a normal clip with its creator being LIVE', () => {
+  const container = { matches: () => false, querySelector: () => ({}) };
+  const video = { duration: 20, readyState: 4, closest: () => null };
+  assert.equal(adapter.isLive(container, video), false);
+  assert.equal(adapter.isLive({ matches: () => true }, undefined), true);
+  assert.equal(adapter.isLive(null, { duration: Infinity, readyState: 3, closest: () => null }), true);
+});
+
+test('preloaded or sidebar LIVE card does not override a larger regular feed card', () => {
+  const regular = { area: 1000, matches: () => false, querySelector: () => null };
+  const live = { area: 200, matches: () => true, querySelector: () => null };
+  const doc = { querySelectorAll: () => [regular, live] };
+  assert.equal(adapter.visibleLiveCard(doc, node => node.area), null);
+  live.area = 1200;
+  assert.equal(adapter.visibleLiveCard(doc, node => node.area), live);
+});
+
+test('next navigation jumps across consecutive loaded LIVE cards to a regular clip', () => {
+  let scrolls = 0;
+  const regular = { matches: selector => selector.startsWith('article'), querySelector: () => null, scrollIntoView: () => scrolls++ };
+  const secondLive = { matches: () => true, querySelector: () => null, nextElementSibling: regular };
+  const firstLive = { matches: () => true, querySelector: () => null, nextElementSibling: secondLive };
+  assert.equal(navigation({ container: { nextElementSibling: firstLive } }), true);
+  assert.equal(scrolls, 1);
+});
+
+test('photo detection recognizes post identity while leaving normal video thumbnails alone', () => {
+  assert.equal(adapter.isPhotoRoute('/@creator/photo/1234'), true);
+  const linkedPhoto = { matches: () => false, querySelector: selector => selector === 'a[href*="/photo/"]' ? {} : null };
+  assert.equal(adapter.isPhoto(linkedPhoto, null), true);
+  assert.equal(adapter.isPhoto(linkedPhoto, { videoWidth: 640, videoHeight: 360, closest: () => null }), false);
+  assert.equal(adapter.isPhoto({ matches: () => true }, { videoWidth: 0, videoHeight: 0 }), true);
+});
+
+test('zero video dimensions only imply a slideshow with decoded data and a large image', () => {
+  const card = { matches: () => false, querySelector: () => null,
+    querySelectorAll: () => [{ getBoundingClientRect: () => ({ width: 300, height: 400 }) }] };
+  const media = { videoWidth: 0, videoHeight: 0, readyState: 0, closest: () => null };
+  assert.equal(adapter.isPhoto(card, media), false);
+  media.readyState = 3;
+  assert.equal(adapter.isPhoto(card, media), true);
+});
+
+test('navigation skips a mixed sequence of photo, LIVE and photo cards', () => {
+  let scrolls = 0;
+  const regular = { matches: selector => selector.startsWith('article'), querySelector: () => null, scrollIntoView: () => scrolls++ };
+  const photo = next => ({ matches: selector => selector.startsWith('article') || selector.includes('photo-mode'), querySelector: () => null, nextElementSibling: next });
+  const live = { matches: selector => selector.startsWith('article') || selector.includes('data-live'), querySelector: () => null, nextElementSibling: photo(regular) };
+  assert.equal(navigation({ container: { nextElementSibling: photo(live) } }), true);
+  assert.equal(scrolls, 1);
+});
+
+test('image carousel arrows are not treated as next-post navigation', () => {
+  const imageArrow = { closest: selector => selector.includes('photo-carousel') ? {} : null,
+    getAttribute: () => null, click() { throw new Error('Must not advance an individual slide'); } };
+  assert.equal(navigation({ button: imageArrow, pathname: '/@creator/photo/123' }), false);
 });
 
 test('feed fallback scrolls document but detail viewer never scrolls unrelated page content', () => {

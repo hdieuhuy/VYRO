@@ -1,3 +1,5 @@
+> Cập nhật 1.5.0 local: đã triển khai adapter Facebook Reels, controls PiP, auto-next và phím tắt; chưa nghiệm thu trên Facebook thật. Các giai đoạn/điều kiện bên dưới là kế hoạch, không phải bằng chứng đã đạt. Xem README và CHANGELOG để biết phạm vi bản hiện tại.
+
 # VYRO — kế hoạch thiết kế và mở rộng extension
 
 Ngày lập: 11/11/2026. Trạng thái: đề xuất để phát triển; chưa đổi tên, giao diện hoặc quyền của extension đang cài.
@@ -113,7 +115,7 @@ Mỗi adapter công bố khả năng riêng; giao diện chỉ hiển thị tín
 
 TikTok có Embed Player với cơ chế điều khiển player nhúng, nhưng đó là tài liệu cho player nhúng. Không suy ra từ đó rằng extension điều khiển được feed TikTok bằng cùng API. Kế hoạch tích hợp feed phải khảo sát trực tiếp trên tiktok.com. Nguồn: https://developers.tiktok.com/docs/en/embed-player
 
-Facebook Reels chưa được khảo sát trực tiếp trong đợt lập kế hoạch này. Khả năng điều hướng, nhận diện video và di chuyển video vào PiP là việc cần chứng minh trong giai đoạn thử nghiệm.
+Facebook Reels đã có adapter beta local từ 1.5.0 nhưng chưa khảo sát/kiểm chứng trực tiếp bằng tài khoản Facebook thật. Khả năng điều hướng, nhận diện video và di chuyển video vào PiP là việc cần chứng minh trong giai đoạn thử nghiệm.
 
 ## 6. Kiến trúc đề xuất
 

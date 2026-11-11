@@ -3,7 +3,22 @@
 ## [Unreleased]
 
 - Thiết kế popup VYRO theo hướng tối, gọn, mạnh.
-- Mở rộng Facebook Reels; chưa nằm trong bản hiện tại.
+- Tiếp tục nghiệm thu Facebook Reels beta trên trình duyệt thật.
+
+## [1.5.0] - 2026-11-11 (Chưa có GitHub Release)
+
+### Added
+- Adapter Facebook Reels desktop cho `/reel/<id>/`, `/reels/`, `/reels/<id>` và `/watch/reels/`.
+- Auto-next khi hết clip hoặc bắt đầu vòng lặp; Skip bằng controls, tổ hợp tùy chỉnh dùng chung và lệnh cấp Chrome.
+- PiP riêng dùng chung với YouTube: phát/tạm dừng, mute, Skip, bật/tắt auto, tua, về tab; controls theo hover/focus và khung hình giữ tỷ lệ.
+- Cài đặt `enabledFacebook` độc lập, popup nhận diện tab Facebook, hiển thị trạng thái kết nối và icon theo công tắc Facebook.
+- Content script cho `facebook.com`/`www.facebook.com`, không điều khiển News Feed thông thường hoặc Stories.
+
+### Behavior / validation
+- Điều hướng ưu tiên nút next tiếng Anh/Việt trong viewer rồi thử cuộn qua card/luồng; chọn video chính, bỏ qua player tải trước ngoài màn hình.
+- Đổi clip trong PiP tiếp tục phiên đang phát, giữ mute và dừng player cũ để tránh tiếng chạy nền.
+- 74 kiểm tra tự động đạt, gồm kiểm tra hồi quy và Facebook Reels. Chưa kiểm chứng trên Facebook thật vì local browser bị tắt; cần người dùng test bản beta trước khi phát hành.
+- Đã chuẩn bị mã nguồn và ZIP test; chưa tạo tag hoặc GitHub Release.
 
 ## [1.4.0] - 2026-11-11
 

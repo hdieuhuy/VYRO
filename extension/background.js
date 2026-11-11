@@ -12,9 +12,9 @@ async function refreshIcon() {
 
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (message?.type !== "vyro-tab-state" || !Number.isInteger(sender.tab?.id) ||
-    !["youtube", "tiktok"].includes(message.platform) || typeof message.enabled !== "boolean") return;
+    !["youtube", "tiktok", "facebook"].includes(message.platform) || typeof message.enabled !== "boolean") return;
   const state = message.enabled ? "on" : "off";
-  const label = message.platform === "tiktok" ? "TikTok" : "YouTube Shorts";
+  const label = message.platform === "tiktok" ? "TikTok" : message.platform === "facebook" ? "Facebook Reels" : "YouTube Shorts";
   Promise.all([
     chrome.action.setIcon({ tabId: sender.tab.id, path: Object.fromEntries(
       [16, 24, 32, 48, 128].map(size => [size, `icons/${state}-${size}.png`])

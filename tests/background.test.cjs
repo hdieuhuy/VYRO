@@ -44,7 +44,7 @@ test('toolbar icon restores saved state and changes color when toggled', async (
   assert.equal(icons.at(-1)[16], 'icons/off-16.png');
 });
 
-test('TikTok tab badge state follows TikTok auto setting instead of the global YouTube setting', async () => {
+test('TikTok and Facebook tab icons follow their own auto settings', async () => {
   let message;
   const icons = [], titles = [];
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../extension/background.js'), 'utf8'), {
@@ -65,6 +65,11 @@ test('TikTok tab badge state follows TikTok auto setting instead of the global Y
   assert.equal(icons.at(-1).tabId, 42);
   assert.equal(icons.at(-1).path[16], 'icons/off-16.png');
   assert.match(titles.at(-1).title, /TikTok · Đã tắt/);
+  message({ type: 'vyro-tab-state', platform: 'facebook', enabled: false }, { tab: { id: 43 } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(icons.at(-1).tabId, 43);
+  assert.equal(icons.at(-1).path[16], 'icons/off-16.png');
+  assert.match(titles.at(-1).title, /Facebook Reels · Đã tắt/);
 });
 
 test('native skip targets PiP owner instead of the focused unrelated tab', async () => {

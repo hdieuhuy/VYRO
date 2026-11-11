@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '../extension');
 
-async function setupPopup(platform = 'youtube') {
+async function setupPopup(platform = 'youtube', connected = true) {
   const elements = new Map();
   const handlers = {};
   const saved = [];
@@ -23,8 +23,11 @@ async function setupPopup(platform = 'youtube') {
       getElementById: element,
       addEventListener: (type, callback) => { handlers[type] = callback; }
     },
-    chrome: { tabs: { query: async () => [{ id: 7 }], sendMessage: async () => ({ platform }) }, commands: { getAll: async () => [{ name: 'skip-short', shortcut: 'Command+Shift+9' }] }, storage: { local: {
-      get: async () => ({ enabled: true, enabledTikTok: false }),
+    chrome: { runtime: { getManifest: () => ({ version: '1.5.0' }) }, tabs: { query: async () => [{ id: 7 }], sendMessage: async () => {
+      if (!connected) throw new Error('Content script not loaded');
+      return { platform };
+    } }, commands: { getAll: async () => [{ name: 'skip-short', shortcut: 'Command+Shift+9' }] }, storage: { local: {
+      get: async () => ({ enabled: true, enabledTikTok: false, enabledFacebook: false }),
       set: async settings => { saved.push(JSON.parse(JSON.stringify(settings))); }
     } } }
   });
@@ -61,6 +64,13 @@ test('popup records, persists, cancels and restores a custom shortcut', async ()
   assert.equal(element('shortcut-value').textContent, '⌘ + /');
 });
 
+test('popup reports missing content script and shows loaded build version', async () => {
+  const { element } = await setupPopup('tiktok', false);
+  assert.match(element('build-version').textContent, /1\.5\.0/);
+  assert.match(element('connection-status').textContent, /Chưa kết nối/);
+  assert.match(element('connection-status').textContent, /tải lại tab/);
+});
+
 
 test('popup detects TikTok and saves its auto switch without changing YouTube', async () => {
   const { element, saved, flush } = await setupPopup('tiktok');
@@ -77,4 +87,19 @@ test('popup detects TikTok and saves its auto switch without changing YouTube', 
   element('enabled').checked = false;
   await element('enabled').handlers.change();
   assert.deepEqual(saved.at(-1), { enabled: false });
+});
+
+test('popup detects Facebook Reels and keeps its auto setting separate', async () => {
+  const { element, saved, flush } = await setupPopup('facebook');
+  assert.equal(element('platform').value, 'facebook');
+  assert.equal(element('enabled').checked, false);
+  element('enabled').checked = true;
+  await element('enabled').handlers.change();
+  assert.deepEqual(saved.at(-1), { enabledFacebook: true });
+  assert.match(element('status').textContent, /Facebook Reels/);
+  element('platform').value = 'tiktok'; element('platform').handlers.change(); await flush();
+  element('enabled').checked = true; await element('enabled').handlers.change();
+  assert.deepEqual(saved.at(-1), { enabledTikTok: true });
+  element('platform').value = 'facebook'; element('platform').handlers.change(); await flush();
+  assert.match(element('status').textContent, /Facebook Reels/);
 });

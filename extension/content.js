@@ -14,13 +14,23 @@
   let pendingManual = false;
   let shortcut = ShortsShortcut.normalize();
   let pip = null;
+  let skippingPost = false;
+  let skippedContainer = null;
+  let skippedTarget = null;
+  let skipAttempts = 0;
+  let lastSkippedAttempt = -Infinity;
+  let skippedKind = "LIVE";
+  let skippedIdentity = "";
+  let manualSeekUntil = 0;
   const isTikTok = VyroTikTok.isHost(location.hostname);
-  const platform = isTikTok ? "tiktok" : "youtube";
-  const enabledKey = isTikTok ? "enabledTikTok" : "enabled";
+  const isFacebook = VyroFacebook.isHost(location.hostname);
+  const adapter = isTikTok ? VyroTikTok : isFacebook ? VyroFacebook : null;
+  const platform = isTikTok ? "tiktok" : isFacebook ? "facebook" : "youtube";
+  const enabledKey = isTikTok ? "enabledTikTok" : isFacebook ? "enabledFacebook" : "enabled";
 
-  const isShorts = () => isTikTok ? VyroTikTok.isPage(location.pathname) : /^\/shorts\/[^/]+/.test(location.pathname);
+  const isShorts = () => isTikTok ? VyroTikTok.canOpenPip(location.pathname) : isFacebook ? VyroFacebook.isPage(location.pathname) : /^\/shorts\/[^/]+/.test(location.pathname);
   const rendererOf = video => video === pip?.video() ? pip.renderer() :
-    (isTikTok ? VyroTikTok.container(video) : video.closest("ytd-reel-video-renderer"));
+    (adapter ? adapter.container(video) : video.closest("ytd-reel-video-renderer"));
   const hasPip = () => pip?.isOpen() || !!document.pictureInPictureElement;
   const canWatch = () => !document.hidden || hasPip();
   const isAd = video => Boolean(video.closest(".ad-showing") ||
@@ -45,9 +55,9 @@
     if (heldVideo && anchor) {
       const area = visibleArea(anchor);
       if (area > 0) candidates.push({ video: heldVideo, area, renderer: pip.renderer(),
-        held: pip.sourceIdentity() === location.pathname });
+        inPip: true, held: pip.sourceIdentity() === location.pathname });
     }
-    if (isTikTok) return VyroTikTok.choose(candidates);
+    if (adapter) return adapter.choose(candidates);
     const marked = candidates.filter(item => item.renderer?.hasAttribute("is-active"));
     return (marked.length ? marked : candidates).sort((a, b) => b.area - a.area)[0]?.video || null;
   }
@@ -74,18 +84,22 @@
   }
 
   function canAdvance(manual = false) {
+    if (isTikTok && skippingPost) return canWatch() && !VyroTikTok.blocked(document, visibleArea);
     return (enabled || manual) && isShorts() && canWatch() && active &&
       currentVideo() === active && !isAd(active) &&
-      (!isTikTok || !VyroTikTok.blocked(document, visibleArea));
+      (manual || !isTikTok || VyroTikTok.canAutoAdvance(location.pathname, document, visibleArea, !!hasPip())) &&
+      (!adapter || !adapter.blocked(document, visibleArea)) &&
+      (!isFacebook || VyroFacebook.canMount(active));
   }
 
   function nextShort(manual = false) {
+    if (isTikTok && skippingPost) { advancePastUnsupported(); return; }
     if (!canAdvance(manual) || performance.now() - lastAttempt < 1200) return;
     pending = true;
     pendingManual = manual;
     lastAttempt = performance.now();
-    if (isTikTok) {
-      VyroTikTok.advance({ doc: document, video: active, container: rendererOf(active),
+    if (adapter) {
+      adapter.advance({ doc: document, video: active, container: rendererOf(active),
         stage: attempt++ % 3, visibleArea, getStyle: getComputedStyle, pathname: location.pathname });
       return;
     }
@@ -134,14 +148,74 @@
       previousTime - time > active.duration / 2 &&
       now - previousSampleAt < 1500 && wasPlaying && !active.paused &&
       !wasSeeking && !active.seeking;
-    if (wrapped || active.ended) nextShort();
+    // Feed players can implement looping by seeking back to zero. Its transient
+    // `seeking` state and a throttled source tab must not swallow that loop.
+    const adapterWrapped = !!adapter && Number.isFinite(active.duration) && active.duration > 0 &&
+      previousTime >= active.duration - 0.75 && time < Math.min(0.75, active.duration * 0.4) &&
+      previousTime - time > active.duration / 2 && now - previousSampleAt < 5000 &&
+      wasPlaying && !active.paused && now >= manualSeekUntil;
+    if ((wrapped && now >= manualSeekUntil) || adapterWrapped || active.ended) nextShort();
     previousTime = time;
     previousSampleAt = now;
     wasPlaying = !active.paused;
     wasSeeking = active.seeking;
   }
 
+  function advancePastUnsupported() {
+    if (!canWatch() || performance.now() - lastSkippedAttempt < 1200 ||
+      VyroTikTok.blocked(document, visibleArea)) return;
+    if (skipAttempts >= 8) {
+      pip?.suspend?.(`Chưa bỏ qua được ${skippedKind} · Hãy dùng nút tiếp theo ở tab nguồn`);
+      return;
+    }
+    lastSkippedAttempt = performance.now();
+    VyroTikTok.advance({ doc: document, video: sourceVideo(), container: skippedContainer,
+      stage: skipAttempts++ % 3, visibleArea, getStyle: getComputedStyle, pathname: location.pathname });
+  }
+
+  function handleUnsupportedPost() {
+    if (!isTikTok || !canWatch()) return false;
+    const source = sourceVideo();
+    const sourceContainer = source ? rendererOf(source) : null;
+    const routeIsLive = VyroTikTok.isLiveRoute(location.pathname);
+    const routeIsPhoto = VyroTikTok.isPhotoRoute(location.pathname);
+    const visiblePost = VyroTikTok.visibleNonVideoCard(document, visibleArea);
+    const card = visiblePost?.card;
+    const sourceIsLive = !VyroTikTok.isVideoRoute(location.pathname) && VyroTikTok.isLive(sourceContainer, source);
+    const sourceIsPhoto = VyroTikTok.isPhoto(sourceContainer, source);
+    if (!routeIsLive && !routeIsPhoto && !card && !sourceIsLive && !sourceIsPhoto) {
+      skippingPost = false;
+      skippedTarget = null;
+      skipAttempts = 0;
+      return false;
+    }
+    const kind = routeIsPhoto ? "bài ảnh" : routeIsLive ? "LIVE" : visiblePost?.kind || (sourceIsPhoto ? "bài ảnh" : "LIVE");
+    if (kind === "bài ảnh" && !hasPip() && !enabled && !pendingManual) {
+      skippingPost = false;
+      skippedTarget = null;
+      skipAttempts = 0;
+      return false;
+    }
+    const target = routeIsLive || routeIsPhoto ? location.pathname : card || source;
+    const postLink = card?.querySelector?.('a[href*="/photo/"], a[href*="/video/"], a[href*="/live"]');
+    const identity = card?.getAttribute?.('data-id') || card?.getAttribute?.('data-scroll-index') || postLink?.getAttribute?.('href') || "";
+    if (target !== skippedTarget || kind !== skippedKind || identity !== skippedIdentity) {
+      skippedTarget = target; skippedIdentity = identity; skipAttempts = 0;
+    }
+    skippedKind = kind;
+    skippingPost = true;
+    skippedContainer = card || sourceContainer;
+    const media = card?.querySelector?.('video') || ((routeIsLive || routeIsPhoto || sourceIsLive || sourceIsPhoto) ? source : null);
+    if (media && !media.paused) media.pause?.();
+    for (const audio of card?.querySelectorAll?.('audio') || []) audio.pause?.();
+    // Handle non-video posts before PiP route checks or player replacement.
+    pip?.suspend?.(`Đang bỏ qua ${skippedKind}…`);
+    advancePastUnsupported();
+    return true;
+  }
+
   function reconcile() {
+    if (handleUnsupportedPost()) return;
     pip?.update();
     if (!isShorts() || !canWatch()) {
       if (active) detach();
@@ -181,7 +255,7 @@
   function announceStatus() {
     chrome.runtime.sendMessage({ type: "vyro-tab-state", platform, enabled }).catch(() => {});
   }
-  chrome.storage.local.get({ enabled: true, enabledTikTok: true, shortcut: ShortsShortcut.defaults }).then(settings => {
+  chrome.storage.local.get({ enabled: true, enabledTikTok: true, enabledFacebook: true, shortcut: ShortsShortcut.defaults }).then(settings => {
     enabled = settings[enabledKey] !== false;
     shortcut = ShortsShortcut.normalize(settings.shortcut);
     reconcile();
@@ -191,7 +265,8 @@
   document.addEventListener("yt-navigate-finish", reconcile);
   document.addEventListener("visibilitychange", reconcile);
   function onShortcut(event) {
-    if (event.repeat || event.isComposing || event.defaultPrevented || !isShorts() || !canWatch() ||
+    if (event.repeat || event.isComposing || event.defaultPrevented ||
+      (!isShorts() && !(isTikTok && skippingPost)) || !canWatch() ||
       ShortsShortcut.editing(event) || !ShortsShortcut.matches(event, shortcut)) return;
     reconcile();
     if (!canAdvance(true)) return;
@@ -202,27 +277,36 @@
   document.addEventListener("keydown", onShortcut, true);
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     if (message?.type === "shorts-query-pip") {
-      respond({ pip: isShorts() && !!hasPip() });
+      respond({ pip: (isShorts() || (isTikTok && skippingPost)) && !!hasPip() });
     } else if (message?.type === "shorts-skip-native") {
       reconcile();
       const ok = !!canAdvance(true);
       if (ok) nextShort(true);
       respond({ ok });
     } else if (message?.type === "vyro-status") {
-      respond({ platform, supported: isShorts(), enabled });
+      respond({ platform, supported: isShorts(), enabled, hasVideo: !!currentVideo() });
     }
   });
   pip = ShortsPip.create({
     isShorts, findVideo: sourceVideo,
+    resumeOnSwitch: isFacebook,
+    canMountVideo: video => isFacebook ? VyroFacebook.canMount(video) : !isTikTok || (!VyroTikTok.isLiveRoute(location.pathname) && !VyroTikTok.isPhotoRoute(location.pathname) &&
+      !VyroTikTok.isLive(VyroTikTok.container(video), video) && !VyroTikTok.isPhoto(VyroTikTok.container(video), video)),
     enabled: () => enabled,
     toggleAuto: () => chrome.storage.local.set({ [enabledKey]: !enabled }).catch(console.warn),
-    rendererOf: video => isTikTok ? VyroTikTok.container(video) : video.closest("ytd-reel-video-renderer"),
+    rendererOf: video => adapter ? adapter.container(video) : video.closest("ytd-reel-video-renderer"),
     identity: () => location.pathname,
+    onSeek: () => { manualSeekUntil = performance.now() + 1500; },
     shortcutLabel: () => ShortsShortcut.label(shortcut, /Mac/.test(navigator.platform)),
     skip: () => { reconcile(); nextShort(true); },
     onKey: onShortcut
   });
   pip.update();
+  document.addEventListener("pointerdown", event => {
+    if (event.target?.closest?.('input[type="range"], [role="slider"], [data-e2e*="seek"], [data-e2e*="progress"]')) {
+      manualSeekUntil = performance.now() + 1500;
+    }
+  }, true);
   // A small bounded scan also covers reused players and SPA navigation.
   setInterval(reconcile, 250);
 })();

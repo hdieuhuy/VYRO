@@ -6,6 +6,8 @@ globalThis.ShortsPip = {
     let opening = false;
     let controls = null;
     let audioPreference = null;
+    let waitingForVideo = false;
+    let notice = null;
     // YouTube rewrites player geometry after loading a new source. Keep the
     // actual video box pinned to the PiP viewport, including reused players.
     const centeredStyle = {
@@ -92,18 +94,48 @@ globalThis.ShortsPip = {
       video.addEventListener("resize", centerVideo);
     }
 
+    function suspend(message) {
+      waitingForVideo = true;
+      if (moved?.video && !moved.video.paused) moved.video.pause();
+      if (controls) controls.help.textContent = message;
+      if (notice) { notice.textContent = message; notice.hidden = false; }
+    }
+
     function update() {
       launch.hidden = !options.isShorts();
       if (!floating || floating.closed) return;
       if (!options.isShorts()) { floating.close(); return; }
       // YouTube may reuse a player or activate a different preloaded video.
       const candidate = options.findVideo();
+      if (candidate && options.canMountVideo && !options.canMountVideo(candidate)) {
+        suspend("Đang tìm clip tiếp theo…");
+        return;
+      }
       const candidateRenderer = candidate && (options.rendererOf ? options.rendererOf(candidate) : candidate.closest("ytd-reel-video-renderer"));
       const oldStillActive = moved?.renderer?.hasAttribute("is-active");
-      if (candidate && candidate !== moved?.video &&
-        (!oldStillActive || candidateRenderer?.hasAttribute("is-active"))) mount(candidate);
+      if (candidate && (!options.canMountVideo || options.canMountVideo(candidate)) && candidate !== moved?.video &&
+        (!oldStillActive || candidateRenderer?.hasAttribute("is-active"))) {
+        const resume = options.resumeOnSwitch && moved?.video && (!moved.video.paused || moved.video.ended);
+        if (options.resumeOnSwitch && moved?.video && !moved.video.paused) moved.video.pause();
+        mount(candidate);
+        if (resume) candidate.play().catch(() => {});
+      }
       const video = moved?.video;
       if (!video || !controls) return;
+      if (options.canMountVideo && !options.canMountVideo(video)) {
+        suspend("Đang tìm clip tiếp theo…");
+        return;
+      }
+      if (waitingForVideo) {
+        if (!candidate) return;
+        waitingForVideo = false;
+        video.play().catch(() => {});
+      }
+      if (notice) {
+        const loading = video.readyState < 2 || (video.videoWidth === 0 && video.videoHeight === 0);
+        notice.hidden = !loading;
+        if (loading) notice.textContent = "Đang tải clip tiếp theo…";
+      }
       centerVideo();
       if (audioPreference) {
         if (video.muted !== audioPreference.muted) video.muted = audioPreference.muted;
@@ -125,7 +157,15 @@ globalThis.ShortsPip = {
       if (floating && !floating.closed) { floating.focus(); return; }
       if (opening) return;
       const video = options.findVideo();
-      if (!video) { launch.textContent = "Mở một video đang phát trước"; return; }
+      if (!video) {
+        launch.textContent = "Chưa thấy video · Mở hoặc phát clip trước";
+        launch.title = "Trên Explore/tìm kiếm, bấm mở một clip hoặc rê chuột để video bắt đầu phát, rồi bấm PiP lại.";
+        return;
+      }
+      if (options.canMountVideo && !options.canMountVideo(video)) {
+        launch.textContent = "Đang bỏ qua LIVE/bài ảnh · Chờ clip thường";
+        return;
+      }
       if (!globalThis.documentPictureInPicture?.requestWindow) {
         launch.textContent = "Chrome chưa hỗ trợ PiP riêng";
         return;
@@ -140,7 +180,9 @@ globalThis.ShortsPip = {
           :root{color-scheme:dark;font:13px/1.4 system-ui;background:#121212;color:#f9f9f9}
           *{box-sizing:border-box}body{margin:0;height:100dvh;overflow:hidden;position:relative}
           #stage{position:absolute;inset:0;min-width:0;min-height:0;background:#000;overflow:hidden}
-          footer{position:absolute;inset:auto 0 0;padding:40px 14px 12px;display:grid;gap:8px;background:linear-gradient(transparent,rgba(0,0,0,.78) 42%,rgba(0,0,0,.88));opacity:0;pointer-events:none;transform:translateY(5px);transition:opacity 150ms ease-out,transform 150ms ease-out}
+          #pip-notice{position:absolute;inset:0;z-index:2;display:grid;place-items:center;text-align:center;padding:24px;background:#111d;color:#eee;font:13px/1.5 system-ui;pointer-events:none}
+          #pip-notice[hidden]{display:none}
+          footer{position:absolute;z-index:3;inset:auto 0 0;padding:40px 14px 12px;display:grid;gap:8px;background:linear-gradient(transparent,rgba(0,0,0,.78) 42%,rgba(0,0,0,.88));opacity:0;pointer-events:none;transform:translateY(5px);transition:opacity 150ms ease-out,transform 150ms ease-out}
           body:hover footer,footer:has(:focus-visible){opacity:1;pointer-events:auto;transform:translateY(0)}
           .row{display:flex;align-items:center;justify-content:space-between;gap:8px}
           button{position:relative;display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;padding:8px;border:0;border-radius:50%;background:transparent;color:#fff;cursor:pointer;transition:background 120ms ease-out,color 120ms ease-out}
@@ -154,6 +196,12 @@ globalThis.ShortsPip = {
         doc.head.append(style);
         const stage = doc.createElement("div");
         stage.id = "stage";
+        notice = doc.createElement("div");
+        notice.id = "pip-notice";
+        notice.hidden = true;
+        notice.setAttribute("role", "status");
+        notice.setAttribute("aria-live", "polite");
+        stage.append(notice);
         const footer = doc.createElement("footer");
         const seek = doc.createElement("input");
         seek.id = "seek"; seek.type = "range"; seek.min = "0"; seek.max = "1000"; seek.step = "1";
@@ -188,12 +236,13 @@ globalThis.ShortsPip = {
         footer.append(seek, row, info);
         doc.body.append(stage, footer);
         seek.addEventListener("input", () => {
+          options.onSeek?.();
           if (moved && Number.isFinite(moved.video.duration)) moved.video.currentTime = moved.video.duration * Number(seek.value) / 1000;
         });
         doc.addEventListener("keydown", options.onKey, true);
         floating.addEventListener("resize", centerVideo);
         floating.addEventListener("pagehide", () => {
-          restore(); floating = null; controls = null; audioPreference = null;
+          restore(); floating = null; controls = null; audioPreference = null; waitingForVideo = false; notice = null;
           launch.textContent = "PiP riêng ↗";
         }, { once: true });
         controls = { play, mute, auto, seek, time, help };
@@ -211,6 +260,7 @@ globalThis.ShortsPip = {
     launch.addEventListener("click", open);
     return {
       update,
+      suspend,
       isOpen: () => !!floating && !floating.closed,
       video: () => moved?.video || null,
       renderer: () => moved?.renderer || null,

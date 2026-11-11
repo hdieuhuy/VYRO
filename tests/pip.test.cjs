@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function fixture() {
+function fixture(overrides = {}) {
   class Element {
     constructor(tag, doc) {
       this.tagName = tag.toUpperCase(); this.doc = doc; this.children = [];
@@ -55,9 +55,10 @@ function fixture() {
   const api = context.ShortsPip.create({
     isShorts: () => true, findVideo: () => source, enabled: () => autoEnabled,
     rendererOf: video => video.renderer,
+    canMountVideo: video => !video.live && !video.photo,
     identity: () => '/foryou',
     shortcutLabel: () => '⌘ + /', onKey: keyHandler,
-    skip: () => { skipCount++; }, toggleAuto() { autoEnabled = !autoEnabled; }
+    skip: () => { skipCount++; }, toggleAuto() { autoEnabled = !autoEnabled; }, ...overrides
   });
   function video(active = true) {
     const node = sourceDoc.createElement('video');
@@ -97,6 +98,50 @@ test('custom PiP moves the real video, provides controls and restores it on clos
   assert.equal(app.api.isOpen(), false);
   assert.equal(first.parent, app.sourceDoc.body);
   assert.equal(first.getAttribute('style'), 'width:500px');
+});
+
+test('PiP waits through a slideshow and returns to video without a blank dead-end', async () => {
+  const app = fixture();
+  const first = app.video(); app.setSource(first); await app.open();
+  app.api.suspend('Đang bỏ qua bài ảnh…');
+  const notice = app.pipDoc.getElementById('pip-notice');
+  assert.equal(notice.hidden, false);
+  assert.match(notice.textContent, /bài ảnh/);
+  const photoAudio = app.video(); photoAudio.photo = true; photoAudio.videoWidth = 0; photoAudio.videoHeight = 0;
+  app.setSource(photoAudio); app.api.update();
+  assert.equal(app.api.video(), first);
+  assert.equal(app.win.closed, false);
+  app.setSource(null); app.api.update();
+  assert.equal(first.paused, true);
+  assert.equal(notice.hidden, false);
+  const regular = app.video(); regular.readyState = 1; regular.videoWidth = 0; regular.videoHeight = 0;
+  app.setSource(regular); app.api.update();
+  assert.equal(app.api.video(), regular);
+  assert.equal(notice.hidden, false);
+  regular.readyState = 3; regular.videoWidth = 1080; regular.videoHeight = 1920;
+  app.api.update();
+  assert.equal(notice.hidden, true);
+  assert.equal(regular.paused, false);
+  app.win.close();
+});
+
+test('PiP holds its existing window across LIVE and resumes the next regular clip', async () => {
+  const app = fixture();
+  const first = app.video(); app.setSource(first); await app.open();
+  app.api.suspend('Đang bỏ qua LIVE…');
+  assert.equal(first.paused, true);
+  const live = app.video(true); live.live = true;
+  app.setSource(live); app.api.update();
+  assert.equal(app.api.video(), first);
+  assert.equal(app.win.closed, false);
+  assert.equal(first.paused, true);
+  const regular = app.video(true); regular.paused = true;
+  app.setSource(regular); app.api.update();
+  assert.equal(app.api.video(), regular);
+  assert.equal(regular.paused, false);
+  assert.equal(app.win.closed, false);
+  assert.equal(live.parent, app.sourceDoc.body);
+  app.win.close();
 });
 
 test('TikTok-compatible PiP preserves mute across clips and toggles auto independently of playback', async () => {
@@ -164,4 +209,31 @@ test('custom PiP ignores an inactive preload and switches when a new player acti
   assert.equal(next.parent.id, 'stage');
   app.win.close();
   assert.equal(next.parent, app.sourceDoc.body);
+});
+
+test('Facebook PiP resumes a new paused clip after playing/ended video, preserves mute and restores source', async () => {
+  const app = fixture({ resumeOnSwitch: true });
+  const first = app.video(false); app.setSource(first); await app.open();
+  app.pipDoc.getElementById('mute').events.click();
+  const next = app.video(false); next.paused = true; app.setSource(next); app.api.update();
+  assert.equal(app.api.video(), next);
+  assert.equal(next.paused, false);
+  assert.equal(next.muted, true);
+  assert.equal(first.parent, app.sourceDoc.body);
+  assert.equal(first.paused, true);
+  next.paused = true; next.ended = true;
+  const third = app.video(false); third.paused = true; app.setSource(third); app.api.update();
+  assert.equal(third.paused, false);
+  assert.equal(third.muted, true);
+  app.win.close();
+  assert.equal(third.parent, app.sourceDoc.body);
+});
+
+test('Facebook PiP does not resume a deliberately paused session while switching players', async () => {
+  const app = fixture({ resumeOnSwitch: true });
+  const first = app.video(false); app.setSource(first); await app.open();
+  app.pipDoc.getElementById('play').events.click();
+  const next = app.video(false); next.paused = true; app.setSource(next); app.api.update();
+  assert.equal(next.paused, true);
+  app.win.close();
 });

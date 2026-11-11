@@ -49,7 +49,7 @@ def build(tag=None):
         entry = zipfile.ZipInfo('vyro/INSTALL.txt', date_time=(2026, 1, 1, 0, 0, 0))
         entry.compress_type = zipfile.ZIP_DEFLATED
         entry.external_attr = 0o100644 << 16
-        archive.writestr(entry, 'VYRO ' + version + '\n\n1. Open chrome://extensions\n2. Enable Developer mode\n3. Load unpacked -> choose this vyro folder\n4. Reload YouTube tabs\n\nGuide: https://github.com/hdieuhuy/VYRO#readme\nUpdates: https://github.com/hdieuhuy/VYRO/releases/latest\n')
+        archive.writestr(entry, 'VYRO ' + version + '\n\n1. Open chrome://extensions\n2. Enable Developer mode\n3. Load unpacked -> choose this vyro folder\n4. Reload YouTube/TikTok/Facebook tabs\n\nGuide: https://github.com/hdieuhuy/VYRO#readme\nUpdates: https://github.com/hdieuhuy/VYRO/releases/latest\n')
     with zipfile.ZipFile(zip_path) as archive:
         if archive.testzip() is not None:
             raise ValueError('Corrupted ZIP')

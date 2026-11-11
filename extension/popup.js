@@ -4,8 +4,9 @@ const status = document.getElementById("status");
 const platformSelect = document.getElementById("platform");
 let selectedPlatform = "youtube";
 let settingsRequest = 0;
-const enabledKey = () => selectedPlatform === "tiktok" ? "enabledTikTok" : "enabled";
-const platformName = () => selectedPlatform === "tiktok" ? "TikTok" : "YouTube Shorts";
+document.getElementById("build-version").textContent = `Phiên bản ${chrome.runtime.getManifest().version}`;
+const enabledKey = () => selectedPlatform === "tiktok" ? "enabledTikTok" : selectedPlatform === "facebook" ? "enabledFacebook" : "enabled";
+const platformName = () => selectedPlatform === "tiktok" ? "TikTok" : selectedPlatform === "facebook" ? "Facebook Reels" : "YouTube Shorts";
 const record = document.getElementById("record");
 const reset = document.getElementById("reset-shortcut");
 const value = document.getElementById("shortcut-value");
@@ -35,7 +36,7 @@ async function saveShortcut(next) {
   try {
     await chrome.storage.local.set({ shortcut: next });
     shortcut = next;
-    shortcutStatus.textContent = "Đã lưu · Dùng chung cho YouTube Shorts và TikTok.";
+    shortcutStatus.textContent = "Đã lưu · Dùng chung cho YouTube Shorts, TikTok và Facebook Reels.";
   } catch {
     shortcutStatus.textContent = "Chưa lưu được phím tắt. Vui lòng thử lại.";
   } finally {
@@ -54,7 +55,7 @@ async function loadSettings() {
   const key = enabledKey();
   toggle.disabled = true;
   try {
-    const settings = await chrome.storage.local.get({ enabled: true, enabledTikTok: true, shortcut: ShortsShortcut.defaults });
+    const settings = await chrome.storage.local.get({ enabled: true, enabledTikTok: true, enabledFacebook: true, shortcut: ShortsShortcut.defaults });
     if (request !== settingsRequest) return;
     toggle.checked = settings[key] !== false;
     toggle.disabled = false;
@@ -65,20 +66,30 @@ async function loadSettings() {
   } catch { status.textContent = "Không đọc được cài đặt. Hãy mở lại tiện ích."; }
 }
 async function initialize() {
+  const connection = document.getElementById("connection-status");
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id !== undefined) {
       const response = await chrome.tabs.sendMessage(tab.id, { type: "vyro-status" });
-      if (["youtube", "tiktok"].includes(response?.platform)) selectedPlatform = response.platform;
+      if (["youtube", "tiktok", "facebook"].includes(response?.platform)) {
+        selectedPlatform = response.platform;
+        connection.textContent = response.supported === false
+          ? "Tab đã kết nối · PiP chưa hỗ trợ loại trang này. Hãy mở một video."
+          : "Tab đã kết nối · Nút PiP riêng nằm ở góc dưới bên phải trang video.";
+      } else throw new Error("No supported content script response");
+    } else {
+      throw new Error("No active tab");
     }
-  } catch { /* Settings remain available even on unsupported / unloaded tabs. */ }
+  } catch {
+    connection.textContent = "Chưa kết nối được với tab. Nếu đang mở YouTube/TikTok/Facebook: Reload VYRO tại chrome://extensions, cho phép truy cập website và tải lại tab.";
+  }
   platformSelect.value = selectedPlatform;
   platformSelect.disabled = false;
   await loadSettings();
 }
 initialize();
 platformSelect.addEventListener("change", () => {
-  selectedPlatform = platformSelect.value === "tiktok" ? "tiktok" : "youtube";
+  selectedPlatform = ["youtube", "tiktok", "facebook"].includes(platformSelect.value) ? platformSelect.value : "youtube";
   loadSettings();
 });
 toggle.addEventListener("change", async () => {

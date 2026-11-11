@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "VYRO — YouTube & TikTok Auto Next + PiP",
-  "version": "1.4.0",
+  "name": "VYRO — Shorts, TikTok & Reels + PiP",
+  "version": "1.5.0",
   "minimum_chrome_version": "116",
   "commands": {
     "skip-short": {
@@ -9,11 +9,11 @@
         "default": "Ctrl+Shift+9",
         "mac": "Command+Shift+9"
       },
-      "description": "Skip video YouTube/TikTok đang phát, kể cả trong PiP",
+      "description": "Skip video YouTube/TikTok/Facebook Reels đang phát, kể cả trong PiP",
       "global": true
     }
   },
-  "description": "Tự chuyển, skip bằng phím và Picture in Picture với controls riêng cho YouTube Shorts và TikTok.",
+  "description": "Tự chuyển, skip bằng phím và PiP với controls riêng cho YouTube Shorts, TikTok và Facebook Reels.",
   "permissions": [
     "storage"
   ],
@@ -40,10 +40,13 @@
         "https://www.youtube.com/*",
         "https://youtube.com/*",
         "https://www.tiktok.com/*",
-        "https://tiktok.com/*"
+        "https://tiktok.com/*",
+        "https://www.facebook.com/*",
+        "https://facebook.com/*"
       ],
       "js": [
         "tiktok.js",
+        "facebook.js",
         "shortcut.js",
         "pip.js",
         "content.js"
