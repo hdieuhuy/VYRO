@@ -1,0 +1,26 @@
+:root { color-scheme: light; font: 14px/1.5 system-ui, sans-serif; color: #232323; background: #faf8f5; }
+body { width: 290px; margin: 0; padding: 24px; }
+.eyebrow { font-size: 10px; letter-spacing: .15em; font-weight: 700; color: #b52d28; }
+h1 { margin: 10px 0 8px; font-size: 25px; line-height: 1.2; letter-spacing: -.8px; }
+p { color: #65605b; margin: 0 0 22px; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 20px; background: white; border: 1px solid #e6e0d8; border-radius: 10px; padding: 14px; font-weight: 600; cursor: pointer; }
+input { appearance: none; width: 40px; height: 24px; border-radius: 20px; background: #aaa49c; margin: 0; cursor: pointer; flex-shrink: 0; }
+input::before { content: ""; display: block; width: 18px; height: 18px; border-radius: 50%; background: white; margin: 3px; }
+input:checked { background: #bd302a; }
+input:checked::before { transform: translateX(16px); }
+input:focus-visible, a:focus-visible { outline: 3px solid #266fc7; outline-offset: 4px; }
+input:disabled { opacity: .5; cursor: wait; }
+#status { min-height: 36px; font-size: 12px; margin: 12px 0 18px; }
+a { font-size: 13px; color: #a42b25; text-underline-offset: 3px; }
+.shortcut { border-top: 1px solid #e6e0d8; padding-top: 16px; margin-bottom: 20px; }
+h2 { font-size: 15px; margin: 0 0 4px; }
+.hint { font-size: 12px; margin: 0 0 10px; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid #266fc7; outline-offset: 3px; }
+button:disabled { cursor: wait; opacity: .6; }
+#record { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; border: 1px solid #d8d0c5; border-radius: 8px; padding: 12px; background: white; margin: 10px 0; }
+#shortcut-value { font-weight: 650; }
+.change-label { font-size: 12px; color: #a42b25; }
+#record[aria-pressed="true"] { border-color: #bd302a; background: #fff0ed; }
+.reset { border: 0; background: transparent; padding: 0; font-size: 12px; color: #a42b25; text-decoration: underline; text-underline-offset: 3px; }
+#shortcut-status { font-size: 12px; margin: 8px 0; min-height: 18px; }

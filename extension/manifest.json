@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "VYRO — Shorts Auto Next & PiP",
+  "version": "1.3.3",
+  "minimum_chrome_version": "116",
+  "commands": {
+    "skip-short": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+9",
+        "mac": "Command+Shift+9"
+      },
+      "description": "Skip Short đang phát, kể cả trong PiP",
+      "global": true
+    }
+  },
+  "description": "Tự chuyển sang YouTube Short tiếp theo khi video hiện tại kết thúc.",
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/on-16.png",
+    "48": "icons/on-48.png",
+    "128": "icons/on-128.png"
+  },
+  "action": {
+    "default_title": "VYRO",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/on-16.png",
+      "24": "icons/on-24.png",
+      "32": "icons/on-32.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*"
+      ],
+      "js": [
+        "shortcut.js",
+        "pip.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
