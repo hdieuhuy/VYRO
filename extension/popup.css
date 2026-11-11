@@ -24,3 +24,7 @@ button:disabled { cursor: wait; opacity: .6; }
 #record[aria-pressed="true"] { border-color: #bd302a; background: #fff0ed; }
 .reset { border: 0; background: transparent; padding: 0; font-size: 12px; color: #a42b25; text-decoration: underline; text-underline-offset: 3px; }
 #shortcut-status { font-size: 12px; margin: 8px 0; min-height: 18px; }
+.platform-label { display:block;font-size:12px;color:#65605b;margin-bottom:6px; }
+#platform { width:100%;font:inherit;color:inherit;background:white;border:1px solid #d8d0c5;border-radius:8px;padding:10px;margin-bottom:12px; }
+#platform:focus-visible { outline:3px solid #266fc7;outline-offset:3px; }
+.platform-link { display:inline-block;margin:12px 0 0 12px; }

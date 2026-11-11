@@ -41,7 +41,7 @@ function fixture() {
     return doc;
   }
   const sourceDoc = document(), pipDoc = document();
-  let pagehide, skipCount = 0, source = null;
+  let pagehide, skipCount = 0, source = null, autoEnabled = true;
   const win = { document: pipDoc, closed: false, addEventListener: (name, fn) => { if (name === 'pagehide') pagehide = fn; }, close() { this.closed = true; pagehide?.(); }, focus() {} };
   const context = { document: sourceDoc, window: { focus() {} }, console,
     MutationObserver: class {
@@ -53,9 +53,11 @@ function fixture() {
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../extension/pip.js'), 'utf8'), context);
   const keyHandler = () => {};
   const api = context.ShortsPip.create({
-    isShorts: () => true, findVideo: () => source, enabled: () => true,
+    isShorts: () => true, findVideo: () => source, enabled: () => autoEnabled,
+    rendererOf: video => video.renderer,
+    identity: () => '/foryou',
     shortcutLabel: () => '⌘ + /', onKey: keyHandler,
-    skip: () => { skipCount++; }, toggleAuto() {}
+    skip: () => { skipCount++; }, toggleAuto() { autoEnabled = !autoEnabled; }
   });
   function video(active = true) {
     const node = sourceDoc.createElement('video');
@@ -95,6 +97,28 @@ test('custom PiP moves the real video, provides controls and restores it on clos
   assert.equal(app.api.isOpen(), false);
   assert.equal(first.parent, app.sourceDoc.body);
   assert.equal(first.getAttribute('style'), 'width:500px');
+});
+
+test('TikTok-compatible PiP preserves mute across clips and toggles auto independently of playback', async () => {
+  const app = fixture();
+  const first = app.video(); app.setSource(first); await app.open();
+  assert.equal(app.api.sourceIdentity(), '/foryou');
+  assert.ok(app.api.anchor());
+  app.pipDoc.getElementById('mute').events.click();
+  assert.equal(first.muted, true);
+  const next = app.video(true); app.setSource(next); app.api.update();
+  assert.equal(next.muted, true);
+  app.pipDoc.getElementById('auto').events.click(); app.api.update();
+  assert.equal(app.pipDoc.getElementById('auto').getAttribute('aria-pressed'), 'false');
+  assert.equal(next.paused, false);
+  app.pipDoc.getElementById('play').events.click();
+  assert.equal(next.paused, true);
+  app.pipDoc.getElementById('play').events.click();
+  assert.equal(next.paused, false);
+  app.pipDoc.getElementById('skip').events.click();
+  assert.equal(app.skips(), 1);
+  app.win.close();
+  assert.equal(next.parent, app.sourceDoc.body);
 });
 
 test('new clips and late YouTube style changes stay centered without seeking or pausing', async () => {

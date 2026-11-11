@@ -10,6 +10,19 @@ async function refreshIcon() {
   await chrome.action.setTitle({ title: `VYRO · ${state === "on" ? "Đang bật" : "Đã tắt"}` });
 }
 
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message?.type !== "vyro-tab-state" || !Number.isInteger(sender.tab?.id) ||
+    !["youtube", "tiktok"].includes(message.platform) || typeof message.enabled !== "boolean") return;
+  const state = message.enabled ? "on" : "off";
+  const label = message.platform === "tiktok" ? "TikTok" : "YouTube Shorts";
+  Promise.all([
+    chrome.action.setIcon({ tabId: sender.tab.id, path: Object.fromEntries(
+      [16, 24, 32, 48, 128].map(size => [size, `icons/${state}-${size}.png`])
+    ) }),
+    chrome.action.setTitle({ tabId: sender.tab.id, title: `VYRO · ${label} · ${message.enabled ? "Đang bật" : "Đã tắt"}` })
+  ]).catch(console.warn);
+});
+
 chrome.runtime.onInstalled.addListener(() => { refreshIcon().catch(console.error); });
 chrome.runtime.onStartup.addListener(() => { refreshIcon().catch(console.error); });
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -35,7 +48,7 @@ async function skipFromChrome(command, commandTab) {
   }
   const candidates = commandTab?.id !== undefined ? [commandTab] : await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   for (const tab of candidates) {
-    try { await chrome.tabs.sendMessage(tab.id, { type: "shorts-skip-native" }); } catch { /* Not a loaded YouTube tab. */ }
+    try { await chrome.tabs.sendMessage(tab.id, { type: "shorts-skip-native" }); } catch { /* Not a loaded supported tab. */ }
   }
 }
 chrome.commands.onCommand.addListener((command, tab) => {

@@ -3,7 +3,26 @@
 ## [Unreleased]
 
 - Thiết kế popup VYRO theo hướng tối, gọn, mạnh.
-- Tách adapter và thử nghiệm TikTok/Facebook Reels; chưa nằm trong bản hiện tại.
+- Mở rộng Facebook Reels; chưa nằm trong bản hiện tại.
+
+## [1.4.0] - 2026-11-11
+
+### Added
+- Tích hợp TikTok desktop: skip bằng nút/phím, tự chuyển sau kết thúc hoặc vòng lặp.
+- Dùng PiP riêng chung với YouTube: phát/tạm dừng, tắt/bật tiếng, tua, skip, tự chuyển và về tab.
+- Công tắc tự chuyển riêng cho TikTok, được popup tự chọn khi đang mở tab TikTok; có thể đổi nền tảng trong popup.
+- Logo/tooltip theo trạng thái tự chuyển của từng tab YouTube/TikTok.
+- Content script trên `www.tiktok.com` và `tiktok.com`.
+- Kiểm tra cho nhận diện video, điều hướng dự phòng, cài đặt độc lập và các controls PiP.
+
+### Fixed
+- Dùng vị trí phần tử giữ chỗ ở tab nguồn để không chuyển PiP sang video tải trước khi clip hiện tại còn hiển thị.
+- Giữ lựa chọn mute trong phiên PiP qua các clip tiếp theo.
+
+### Validation / scope
+- Hỗ trợ mã cho feed `/`, `/foryou`, `/following`, `/friends` và trang `/@user/video/<id>`; không chạy trên LIVE, hồ sơ, lưới Explore/search hoặc bài ảnh.
+- TikTok là bản beta: kiểm tra tự động đã thực hiện; chưa thử trực tiếp trên TikTok trong Chrome vì local browser đang bị tắt trong Work settings.
+- Facebook Reels chưa được triển khai.
 
 ## [1.3.3] - 2026-11-11
 

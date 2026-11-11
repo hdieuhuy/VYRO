@@ -14,9 +14,13 @@
   let pendingManual = false;
   let shortcut = ShortsShortcut.normalize();
   let pip = null;
+  const isTikTok = VyroTikTok.isHost(location.hostname);
+  const platform = isTikTok ? "tiktok" : "youtube";
+  const enabledKey = isTikTok ? "enabledTikTok" : "enabled";
 
-  const isShorts = () => /^\/shorts\/[^/]+/.test(location.pathname);
-  const rendererOf = video => video === pip?.video() ? pip.renderer() : video.closest("ytd-reel-video-renderer");
+  const isShorts = () => isTikTok ? VyroTikTok.isPage(location.pathname) : /^\/shorts\/[^/]+/.test(location.pathname);
+  const rendererOf = video => video === pip?.video() ? pip.renderer() :
+    (isTikTok ? VyroTikTok.container(video) : video.closest("ytd-reel-video-renderer"));
   const hasPip = () => pip?.isOpen() || !!document.pictureInPictureElement;
   const canWatch = () => !document.hidden || hasPip();
   const isAd = video => Boolean(video.closest(".ad-showing") ||
@@ -35,6 +39,15 @@
     const candidates = [...document.querySelectorAll("video")]
       .map(video => ({ video, area: visibleArea(video), renderer: rendererOf(video) }))
       .filter(item => item.area > 0);
+    // Include the source marker while a video is in PiP so preloads don't win.
+    const heldVideo = pip?.video();
+    const anchor = pip?.anchor?.();
+    if (heldVideo && anchor) {
+      const area = visibleArea(anchor);
+      if (area > 0) candidates.push({ video: heldVideo, area, renderer: pip.renderer(),
+        held: pip.sourceIdentity() === location.pathname });
+    }
+    if (isTikTok) return VyroTikTok.choose(candidates);
     const marked = candidates.filter(item => item.renderer?.hasAttribute("is-active"));
     return (marked.length ? marked : candidates).sort((a, b) => b.area - a.area)[0]?.video || null;
   }
@@ -62,7 +75,8 @@
 
   function canAdvance(manual = false) {
     return (enabled || manual) && isShorts() && canWatch() && active &&
-      currentVideo() === active && !isAd(active);
+      currentVideo() === active && !isAd(active) &&
+      (!isTikTok || !VyroTikTok.blocked(document, visibleArea));
   }
 
   function nextShort(manual = false) {
@@ -70,6 +84,11 @@
     pending = true;
     pendingManual = manual;
     lastAttempt = performance.now();
+    if (isTikTok) {
+      VyroTikTok.advance({ doc: document, video: active, container: rendererOf(active),
+        stage: attempt++ % 3, visibleArea, getStyle: getComputedStyle, pathname: location.pathname });
+      return;
+    }
     // Navigation controls can live outside ytd-shorts in newer YouTube layouts.
     // Only click an actual button: clicking the custom-element wrapper can do nothing.
     const button = [...document.querySelectorAll(
@@ -151,17 +170,22 @@
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && changes.enabled) {
-      enabled = changes.enabled.newValue !== false;
+    if (area === "local" && changes[enabledKey]) {
+      enabled = changes[enabledKey].newValue !== false;
       if (!enabled) detach();
       reconcile();
+      announceStatus();
     }
     if (area === "local" && changes.shortcut) shortcut = ShortsShortcut.normalize(changes.shortcut.newValue);
   });
-  chrome.storage.local.get({ enabled: true, shortcut: ShortsShortcut.defaults }).then(settings => {
-    enabled = settings.enabled !== false;
+  function announceStatus() {
+    chrome.runtime.sendMessage({ type: "vyro-tab-state", platform, enabled }).catch(() => {});
+  }
+  chrome.storage.local.get({ enabled: true, enabledTikTok: true, shortcut: ShortsShortcut.defaults }).then(settings => {
+    enabled = settings[enabledKey] !== false;
     shortcut = ShortsShortcut.normalize(settings.shortcut);
     reconcile();
+    announceStatus();
   }).catch(() => { /* Stay disabled when extension context is unavailable. */ });
 
   document.addEventListener("yt-navigate-finish", reconcile);
@@ -184,12 +208,16 @@
       const ok = !!canAdvance(true);
       if (ok) nextShort(true);
       respond({ ok });
+    } else if (message?.type === "vyro-status") {
+      respond({ platform, supported: isShorts(), enabled });
     }
   });
   pip = ShortsPip.create({
     isShorts, findVideo: sourceVideo,
     enabled: () => enabled,
-    toggleAuto: () => chrome.storage.local.set({ enabled: !enabled }).catch(console.warn),
+    toggleAuto: () => chrome.storage.local.set({ [enabledKey]: !enabled }).catch(console.warn),
+    rendererOf: video => isTikTok ? VyroTikTok.container(video) : video.closest("ytd-reel-video-renderer"),
+    identity: () => location.pathname,
     shortcutLabel: () => ShortsShortcut.label(shortcut, /Mac/.test(navigator.platform)),
     skip: () => { reconcile(); nextShort(true); },
     onKey: onShortcut

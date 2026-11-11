@@ -16,6 +16,7 @@ test('toolbar icon restores saved state and changes color when toggled', async (
         onChanged: { addListener: fn => { changed = fn; } }
       },
       runtime: {
+        onMessage: { addListener() {} },
         onInstalled: { addListener: fn => { installed = fn; } },
         onStartup: { addListener: fn => { startup = fn; } }
       },
@@ -43,6 +44,29 @@ test('toolbar icon restores saved state and changes color when toggled', async (
   assert.equal(icons.at(-1)[16], 'icons/off-16.png');
 });
 
+test('TikTok tab badge state follows TikTok auto setting instead of the global YouTube setting', async () => {
+  let message;
+  const icons = [], titles = [];
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../extension/background.js'), 'utf8'), {
+    console,
+    chrome: {
+      commands: { onCommand: { addListener() {} } },
+      storage: { local: { get: async () => ({ enabled: true }) }, onChanged: { addListener() {} } },
+      runtime: {
+        onMessage: { addListener: fn => { message = fn; } },
+        onInstalled: { addListener() {} }, onStartup: { addListener() {} }
+      },
+      action: { setIcon: async args => icons.push(args), setTitle: async args => titles.push(args) }
+    }
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  message({ type: 'vyro-tab-state', platform: 'tiktok', enabled: false }, { tab: { id: 42 } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(icons.at(-1).tabId, 42);
+  assert.equal(icons.at(-1).path[16], 'icons/off-16.png');
+  assert.match(titles.at(-1).title, /TikTok · Đã tắt/);
+});
+
 test('native skip targets PiP owner instead of the focused unrelated tab', async () => {
   let command;
   const sent = [];
@@ -65,7 +89,7 @@ test('native skip targets PiP owner instead of the focused unrelated tab', async
         local: { get: async () => ({ enabled: false }) },
         onChanged: { addListener() {} }
       },
-      runtime: { onInstalled: { addListener() {} }, onStartup: { addListener() {} } },
+      runtime: { onMessage: { addListener() {} }, onInstalled: { addListener() {} }, onStartup: { addListener() {} } },
       action: { setIcon: async () => {}, setTitle: async () => {} }
     }
   });

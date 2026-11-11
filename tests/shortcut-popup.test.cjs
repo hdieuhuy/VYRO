@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '../extension');
 
-test('popup records, persists, cancels and restores a custom shortcut', async () => {
+async function setupPopup(platform = 'youtube') {
   const elements = new Map();
   const handlers = {};
   const saved = [];
@@ -23,8 +23,8 @@ test('popup records, persists, cancels and restores a custom shortcut', async ()
       getElementById: element,
       addEventListener: (type, callback) => { handlers[type] = callback; }
     },
-    chrome: { commands: { getAll: async () => [{ name: 'skip-short', shortcut: 'Command+Shift+9' }] }, storage: { local: {
-      get: async () => ({ enabled: true }),
+    chrome: { tabs: { query: async () => [{ id: 7 }], sendMessage: async () => ({ platform }) }, commands: { getAll: async () => [{ name: 'skip-short', shortcut: 'Command+Shift+9' }] }, storage: { local: {
+      get: async () => ({ enabled: true, enabledTikTok: false }),
       set: async settings => { saved.push(JSON.parse(JSON.stringify(settings))); }
     } } }
   });
@@ -33,6 +33,11 @@ test('popup records, persists, cancels and restores a custom shortcut', async ()
     code, preventDefault() {}, stopImmediatePropagation() {}, ...modifiers
   });
   await flush();
+  return { element, saved, key, flush };
+}
+
+test('popup records, persists, cancels and restores a custom shortcut', async () => {
+  const { element, saved, key, flush } = await setupPopup();
   assert.equal(element('shortcut-value').textContent, '⌘ + /');
   assert.equal(element('record').disabled, false);
   element('record').handlers.click();
@@ -54,4 +59,22 @@ test('popup records, persists, cancels and restores a custom shortcut', async ()
   assert.equal(saved.at(-1).shortcut.code, 'Slash');
   assert.equal(saved.at(-1).shortcut.metaKey, true);
   assert.equal(element('shortcut-value').textContent, '⌘ + /');
+});
+
+
+test('popup detects TikTok and saves its auto switch without changing YouTube', async () => {
+  const { element, saved, flush } = await setupPopup('tiktok');
+  assert.equal(element('platform').value, 'tiktok');
+  assert.equal(element('enabled').checked, false);
+  element('enabled').checked = true;
+  await element('enabled').handlers.change();
+  assert.deepEqual(saved.at(-1), { enabledTikTok: true });
+  assert.match(element('status').textContent, /TikTok/);
+  element('platform').value = 'youtube';
+  element('platform').handlers.change();
+  await flush();
+  assert.equal(element('enabled').checked, true);
+  element('enabled').checked = false;
+  await element('enabled').handlers.change();
+  assert.deepEqual(saved.at(-1), { enabled: false });
 });

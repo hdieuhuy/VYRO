@@ -1,6 +1,11 @@
 "use strict";
 const toggle = document.getElementById("enabled");
 const status = document.getElementById("status");
+const platformSelect = document.getElementById("platform");
+let selectedPlatform = "youtube";
+let settingsRequest = 0;
+const enabledKey = () => selectedPlatform === "tiktok" ? "enabledTikTok" : "enabled";
+const platformName = () => selectedPlatform === "tiktok" ? "TikTok" : "YouTube Shorts";
 const record = document.getElementById("record");
 const reset = document.getElementById("reset-shortcut");
 const value = document.getElementById("shortcut-value");
@@ -30,7 +35,7 @@ async function saveShortcut(next) {
   try {
     await chrome.storage.local.set({ shortcut: next });
     shortcut = next;
-    shortcutStatus.textContent = "Đã lưu · Có hiệu lực ngay trên các tab Shorts.";
+    shortcutStatus.textContent = "Đã lưu · Dùng chung cho YouTube Shorts và TikTok.";
   } catch {
     shortcutStatus.textContent = "Chưa lưu được phím tắt. Vui lòng thử lại.";
   } finally {
@@ -41,21 +46,45 @@ async function saveShortcut(next) {
 }
 const describe = () => {
   status.textContent = toggle.checked
-    ? "Đang bật · Áp dụng cho các tab Shorts đang hiển thị."
-    : "Đã tắt · Bạn có thể lướt Shorts thủ công.";
+    ? `Đang bật · Tự chuyển video ${platformName()} khi kết thúc.`
+    : `Đã tắt tự chuyển ${platformName()} · Skip và PiP vẫn dùng được.`;
 };
-chrome.storage.local.get({ enabled: true, shortcut: ShortsShortcut.defaults }).then(settings => {
-  toggle.checked = settings.enabled !== false;
-  toggle.disabled = false;
-  shortcut = ShortsShortcut.normalize(settings.shortcut);
-  record.disabled = reset.disabled = false;
-  showShortcut();
-  describe();
-}).catch(() => { status.textContent = "Không đọc được cài đặt. Hãy mở lại tiện ích."; });
+async function loadSettings() {
+  const request = ++settingsRequest;
+  const key = enabledKey();
+  toggle.disabled = true;
+  try {
+    const settings = await chrome.storage.local.get({ enabled: true, enabledTikTok: true, shortcut: ShortsShortcut.defaults });
+    if (request !== settingsRequest) return;
+    toggle.checked = settings[key] !== false;
+    toggle.disabled = false;
+    shortcut = ShortsShortcut.normalize(settings.shortcut);
+    record.disabled = reset.disabled = false;
+    showShortcut();
+    describe();
+  } catch { status.textContent = "Không đọc được cài đặt. Hãy mở lại tiện ích."; }
+}
+async function initialize() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id !== undefined) {
+      const response = await chrome.tabs.sendMessage(tab.id, { type: "vyro-status" });
+      if (["youtube", "tiktok"].includes(response?.platform)) selectedPlatform = response.platform;
+    }
+  } catch { /* Settings remain available even on unsupported / unloaded tabs. */ }
+  platformSelect.value = selectedPlatform;
+  platformSelect.disabled = false;
+  await loadSettings();
+}
+initialize();
+platformSelect.addEventListener("change", () => {
+  selectedPlatform = platformSelect.value === "tiktok" ? "tiktok" : "youtube";
+  loadSettings();
+});
 toggle.addEventListener("change", async () => {
   toggle.disabled = true;
   try {
-    await chrome.storage.local.set({ enabled: toggle.checked });
+    await chrome.storage.local.set({ [enabledKey()]: toggle.checked });
     describe();
   } catch {
     toggle.checked = !toggle.checked;

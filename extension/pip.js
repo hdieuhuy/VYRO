@@ -5,6 +5,7 @@ globalThis.ShortsPip = {
     let moved = null;
     let opening = false;
     let controls = null;
+    let audioPreference = null;
     // YouTube rewrites player geometry after loading a new source. Keep the
     // actual video box pinned to the PiP viewport, including reused players.
     const centeredStyle = {
@@ -79,11 +80,11 @@ globalThis.ShortsPip = {
       const marker = document.createElement("div");
       marker.textContent = "Đang xem trong PiP riêng";
       marker.style.cssText = "position:absolute;inset:0;display:grid;place-items:center;background:#151515;color:#eee;font:16px system-ui";
-      const renderer = video.closest("ytd-reel-video-renderer");
+      const renderer = options.rendererOf ? options.rendererOf(video) : video.closest("ytd-reel-video-renderer");
       const style = video.getAttribute("style");
       video.before(marker);
       const fitObserver = new MutationObserver(centerVideo);
-      moved = { video, marker, renderer, style, fitObserver };
+      moved = { video, marker, renderer, style, fitObserver, identity: options.identity?.() };
       floating.document.getElementById("stage").append(video);
       centerVideo();
       video.addEventListener("loadedmetadata", centerVideo);
@@ -97,13 +98,16 @@ globalThis.ShortsPip = {
       if (!options.isShorts()) { floating.close(); return; }
       // YouTube may reuse a player or activate a different preloaded video.
       const candidate = options.findVideo();
-      const candidateRenderer = candidate?.closest("ytd-reel-video-renderer");
+      const candidateRenderer = candidate && (options.rendererOf ? options.rendererOf(candidate) : candidate.closest("ytd-reel-video-renderer"));
       const oldStillActive = moved?.renderer?.hasAttribute("is-active");
       if (candidate && candidate !== moved?.video &&
         (!oldStillActive || candidateRenderer?.hasAttribute("is-active"))) mount(candidate);
       const video = moved?.video;
       if (!video || !controls) return;
       centerVideo();
+      if (audioPreference) {
+        if (video.muted !== audioPreference.muted) video.muted = audioPreference.muted;
+      }
       setIcon(controls.play, video.paused ? "play" : "pause", video.paused ? "Phát" : "Tạm dừng");
       setIcon(controls.mute, video.muted ? "muted" : "volume", video.muted ? "Bật tiếng" : "Tắt tiếng");
       setIcon(controls.auto, "auto", options.enabled() ? "Tự chuyển: Bật · Bấm để tắt" : "Tự chuyển: Tắt · Bấm để bật");
@@ -121,7 +125,7 @@ globalThis.ShortsPip = {
       if (floating && !floating.closed) { floating.focus(); return; }
       if (opening) return;
       const video = options.findVideo();
-      if (!video) { launch.textContent = "Mở một Short đang phát trước"; return; }
+      if (!video) { launch.textContent = "Mở một video đang phát trước"; return; }
       if (!globalThis.documentPictureInPicture?.requestWindow) {
         launch.textContent = "Chrome chưa hỗ trợ PiP riêng";
         return;
@@ -167,7 +171,11 @@ globalThis.ShortsPip = {
           update();
         });
         const mute = button("mute", "Tắt tiếng", "volume", () => {
-          if (moved) moved.video.muted = !moved.video.muted;
+          if (moved) {
+            moved.video.muted = !moved.video.muted;
+            if (!moved.video.muted && moved.video.volume === 0) moved.video.volume = 1;
+            audioPreference = { muted: moved.video.muted };
+          }
           update();
         });
         button("skip", "Skip · Video tiếp theo", "skip", () => { options.skip(); });
@@ -185,7 +193,7 @@ globalThis.ShortsPip = {
         doc.addEventListener("keydown", options.onKey, true);
         floating.addEventListener("resize", centerVideo);
         floating.addEventListener("pagehide", () => {
-          restore(); floating = null; controls = null;
+          restore(); floating = null; controls = null; audioPreference = null;
           launch.textContent = "PiP riêng ↗";
         }, { once: true });
         controls = { play, mute, auto, seek, time, help };
@@ -205,7 +213,9 @@ globalThis.ShortsPip = {
       update,
       isOpen: () => !!floating && !floating.closed,
       video: () => moved?.video || null,
-      renderer: () => moved?.renderer || null
+      renderer: () => moved?.renderer || null,
+      anchor: () => moved?.marker || null,
+      sourceIdentity: () => moved?.identity
     };
   }
 };
