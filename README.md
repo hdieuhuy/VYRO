@@ -4,14 +4,14 @@
 
 Chrome extension giúp tự chuyển YouTube Shorts, TikTok và Facebook Reels, skip bằng phím tắt và xem video trong cửa sổ Picture in Picture có controls riêng.
 
-> Mã nguồn hiện tại: **1.5.0**, chưa có GitHub Release cho phiên bản này. Nút tải bên dưới dẫn đến bản Release đã phát hành gần nhất; muốn thử mã mới, tải mã nguồn và Load unpacked thư mục `extension/`.
+> Phiên bản hiện tại: **1.5.0**. Tải ZIP cài đặt ở nút bên dưới; xem [ghi chú bản 1.5.0](https://github.com/hdieuhuy/VYRO/releases/tag/v1.5.0) để biết các thay đổi. Facebook Reels đang ở giai đoạn beta.
 
 [![Latest release](https://img.shields.io/github/v/release/hdieuhuy/VYRO?label=version)](https://github.com/hdieuhuy/VYRO/releases/latest)
 [![Checks](https://github.com/hdieuhuy/VYRO/actions/workflows/ci.yml/badge.svg)](https://github.com/hdieuhuy/VYRO/actions/workflows/ci.yml)
 
 **[⬇ Tải bản mới nhất — vyro.zip](https://github.com/hdieuhuy/VYRO/releases/latest/download/vyro.zip)** · **[Tất cả phiên bản](https://github.com/hdieuhuy/VYRO/releases)** · **[Changelog](CHANGELOG.md)**
 
-> Link tải hoạt động sau khi GitHub Release đầu tiên đã được tạo thành công. Để nhận thông báo phiên bản mới trên GitHub: Watch → Custom → Releases.
+> Để nhận thông báo phiên bản mới trên GitHub: Watch → Custom → Releases.
 
 ## Tính năng
 
@@ -104,7 +104,7 @@ TikTok có thể thay đổi DOM/player. Bản này chưa được kiểm chứn
 
 Điều hướng ưu tiên nút next trong trình xem Reels (nhãn tiếng Anh/Việt), sau đó thử Reel kế tiếp hoặc cuộn luồng khi nút không hoạt động. Khi chuyển player trong PiP, tiếp tục phát nếu clip trước đang phát/đã kết thúc và giữ lựa chọn mute. Dừng clip cũ để tránh hai nguồn âm thanh.
 
-**Giới hạn beta:** Chrome desktop, player HTML5; không hỗ trợ Facebook mobile, News Feed thông thường, Stories, Watch tổng quát hoặc LIVE. Không xử lý đăng nhập/CAPTCHA thay người dùng. Chưa kiểm chứng trực tiếp với tài khoản Facebook thật vì công cụ local browser của môi trường hiện tại bị tắt; bố cục Facebook khác có thể cần cập nhật selector. Bản 1.5.0 chưa có GitHub Release; mã nguồn và ZIP đóng gói tại máy dùng để test.
+**Giới hạn beta:** Chrome desktop, player HTML5; không hỗ trợ Facebook mobile, News Feed thông thường, Stories, Watch tổng quát hoặc LIVE. Không xử lý đăng nhập/CAPTCHA thay người dùng. Chưa kiểm chứng trực tiếp với tài khoản Facebook thật vì công cụ local browser của môi trường hiện tại bị tắt; bố cục Facebook khác có thể cần cập nhật selector. Bản 1.5.0 đã được người dùng test và xác nhận cho phép phát hành. Tải ZIP tại nút đầu README.
 
 Để nghiệm thu: thử 10 Reel liên tiếp ngoài PiP và trong PiP; thử tắt auto rồi skip bằng nút/phím; thử pause, mute qua lần đổi clip, tua, resize, về tab; xác nhận News Feed/Stories không hiện nút PiP VYRO.
 

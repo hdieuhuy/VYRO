@@ -5,7 +5,7 @@
 - Thiết kế popup VYRO theo hướng tối, gọn, mạnh.
 - Tiếp tục nghiệm thu Facebook Reels beta trên trình duyệt thật.
 
-## [1.5.0] - 2026-11-11 (Chưa có GitHub Release)
+## [1.5.0] - 2026-11-11
 
 ### Added
 - Adapter Facebook Reels desktop cho `/reel/<id>/`, `/reels/`, `/reels/<id>` và `/watch/reels/`.
@@ -17,8 +17,8 @@
 ### Behavior / validation
 - Điều hướng ưu tiên nút next tiếng Anh/Việt trong viewer rồi thử cuộn qua card/luồng; chọn video chính, bỏ qua player tải trước ngoài màn hình.
 - Đổi clip trong PiP tiếp tục phiên đang phát, giữ mute và dừng player cũ để tránh tiếng chạy nền.
-- 74 kiểm tra tự động đạt, gồm kiểm tra hồi quy và Facebook Reels. Chưa kiểm chứng trên Facebook thật vì local browser bị tắt; cần người dùng test bản beta trước khi phát hành.
-- Đã chuẩn bị mã nguồn và ZIP test; chưa tạo tag hoặc GitHub Release.
+- 74 kiểm tra tự động đạt, gồm kiểm tra hồi quy và Facebook Reels. Người dùng đã test bản 1.5.0 và xác nhận cho phép phát hành; công cụ local browser của môi trường phát triển vẫn bị tắt.
+- Phát hành ZIP theo phiên bản, ZIP tên cố định `vyro.zip` và mã SHA-256 qua GitHub Release.
 
 ## [1.4.0] - 2026-11-11
 
