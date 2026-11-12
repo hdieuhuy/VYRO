@@ -5,6 +5,17 @@
 - Thiết kế popup VYRO theo hướng tối, gọn, mạnh.
 - Tiếp tục nghiệm thu Facebook Reels beta trên trình duyệt thật.
 
+## [1.6.1] - 2026-11-12
+
+### Fixed
+- Nhận diện nhãn quảng cáo độc lập trong Facebook Reels, không yêu cầu nút CTA thuộc danh sách Mua ngay/Shop now.
+- Tự skip cả khi nút có nội dung Xem chi tiết, Đánh giá, nội dung bất kỳ, bị ẩn hoặc chưa có nút.
+- Giữ kiểm tra đúng Reel, nhãn hiển thị và loại trừ caption/bình luận/tiêu đề; không suy ra quảng cáo từ CTA đơn lẻ.
+
+### Validation
+- 99 kiểm tra tự động đạt, gồm skip quảng cáo khi auto tắt và PiP mở, các CTA khác nhau và không có CTA.
+- Môi trường phát triển chưa kiểm chứng trực tiếp trên Facebook thật. Phát hành ZIP theo phiên bản, ZIP tên cố định và mã SHA-256 qua GitHub Release.
+
 ## [1.6.0] - 2026-11-12
 
 ### Added

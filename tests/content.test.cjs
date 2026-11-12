@@ -655,3 +655,20 @@ test('YouTube watch reports native PiP support but never invokes Shorts next, in
   app.first.emit('ended');
   assert.equal(app.clicks(), 1);
 });
+
+test('Facebook skips a plain sponsored label with arbitrary or absent CTA, even when auto is off and PiP is open', async () => {
+  for (const cta of ['Xem chi tiết', 'Đánh giá', 'Liên hệ với chúng tôi', null]) {
+    const app = await setup('facebook'); app.setEnabled(false); app.setPipOpen(true);
+    const label = addSponsoredLabel(app);
+    label.matches = () => false;
+    app.renderer.querySelectorAll = selector => {
+      if (selector.startsWith('button,')) throw new Error('Ad detection must never query CTA text: ' + cta);
+      return selector.startsWith('a,') ? [label] : [];
+    };
+    const updates = app.pipUpdates(); app.tick();
+    assert.equal(app.clicks(), 1, String(cta));
+    assert.equal(app.first.paused, true);
+    assert.equal(app.pipUpdates(), updates);
+    assert.equal(app.pipOptions().canMountVideo(app.first), false);
+  }
+});

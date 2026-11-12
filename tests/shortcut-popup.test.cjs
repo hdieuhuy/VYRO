@@ -23,7 +23,7 @@ async function setupPopup(platform = 'youtube', connected = true, pipMode = 'cus
       getElementById: element,
       addEventListener: (type, callback) => { handlers[type] = callback; }
     },
-    chrome: { runtime: { getManifest: () => ({ version: '1.6.0' }) }, tabs: { query: async () => [{ id: 7 }], sendMessage: async () => {
+    chrome: { runtime: { getManifest: () => ({ version: '1.6.1' }) }, tabs: { query: async () => [{ id: 7 }], sendMessage: async () => {
       if (!connected) throw new Error('Content script not loaded');
       return { platform, pipMode };
     } }, commands: { getAll: async () => [{ name: 'skip-short', shortcut: 'Command+Shift+9' }] }, storage: { local: {
@@ -66,7 +66,7 @@ test('popup records, persists, cancels and restores a custom shortcut', async ()
 
 test('popup reports missing content script and shows loaded build version', async () => {
   const { element } = await setupPopup('tiktok', false);
-  assert.match(element('build-version').textContent, /1\.6\.0/);
+  assert.match(element('build-version').textContent, /1\.6\.1/);
   assert.match(element('connection-status').textContent, /Chưa kết nối/);
   assert.match(element('connection-status').textContent, /tải lại tab/);
 });

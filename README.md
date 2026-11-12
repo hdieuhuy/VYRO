@@ -4,7 +4,7 @@
 
 Chrome extension giúp tự chuyển YouTube Shorts, TikTok và Facebook Reels, skip bằng phím tắt và xem video trong cửa sổ Picture in Picture có controls riêng.
 
-> Phiên bản hiện tại: **1.6.0**. Tải ZIP cài đặt ở nút bên dưới; xem [ghi chú bản 1.6.0](https://github.com/hdieuhuy/VYRO/releases/tag/v1.6.0) để biết các thay đổi. Facebook Reels đang ở giai đoạn beta.
+> Phiên bản hiện tại: **1.6.1**. Tải ZIP cài đặt ở nút bên dưới; xem [ghi chú bản 1.6.1](https://github.com/hdieuhuy/VYRO/releases/tag/v1.6.1) để biết các thay đổi. Facebook Reels đang ở giai đoạn beta.
 
 [![Latest release](https://img.shields.io/github/v/release/hdieuhuy/VYRO?label=version)](https://github.com/hdieuhuy/VYRO/releases/latest)
 [![Checks](https://github.com/hdieuhuy/VYRO/actions/workflows/ci.yml/badge.svg)](https://github.com/hdieuhuy/VYRO/actions/workflows/ci.yml)
@@ -118,7 +118,7 @@ TikTok có thể thay đổi DOM/player. Bản này chưa được kiểm chứn
 
 **Từ bản 1.6.0:** tự bỏ qua Reel có nhãn “Được tài trợ”/“Sponsored” (và nhãn quảng cáo tương đương tiếng Anh/Việt), ngay cả khi tắt tự chuyển clip thường. Chỉ kiểm tra nhãn trong Reel đang xem; bỏ qua nhãn ẩn và nội dung/bình luận nhắc tới quảng cáo. Khi dùng PiP riêng, tạm dừng quảng cáo, giữ cửa sổ và hiện thông báo chờ rồi phát tiếp clip thường với lựa chọn mute cũ. Điều hướng có cooldown, tối đa 8 lần thử trên cùng một mục; có thể bấm Skip để thử lại nếu bị kẹt. Cần test trên Facebook thật để xác nhận các bố cục/nhãn khác nhau.
 
-**Bản 1.6.0** bổ sung nhãn chữ thuần `span/div` dưới nút “Mua ngay”/“Shop now”. Khi video nằm trong PiP, kiểm tra cả phần thông tin bên cạnh wrapper ở tab nguồn; phần giữ chỗ được tính như một player để không quét sang Reel khác. Nhãn chữ thuần cần có CTA quảng cáo đi kèm, không coi nút “Mua ngay” đơn lẻ là quảng cáo.
+**Bản 1.6.0** bổ sung nhãn chữ thuần `span/div` dưới nút “Mua ngay”/“Shop now”. Khi video nằm trong PiP, kiểm tra cả phần thông tin bên cạnh wrapper ở tab nguồn; phần giữ chỗ được tính như một player để không quét sang Reel khác. Bản 1.6.0 yêu cầu CTA đi kèm nhãn chữ thuần. Bản **1.6.1** bỏ điều kiện này: chỉ cần nhãn quảng cáo độc lập đang hiển thị trong Reel, dù nút là “Xem chi tiết”, “Đánh giá”, nội dung khác hoặc không có nút. Vẫn loại trừ caption/bình luận/tiêu đề và nhãn ẩn; không coi CTA đơn lẻ là quảng cáo.
 
 Điều hướng ưu tiên nút next trong trình xem Reels (nhãn tiếng Anh/Việt), sau đó thử Reel kế tiếp hoặc cuộn luồng khi nút không hoạt động. Khi chuyển player trong PiP, tiếp tục phát nếu clip trước đang phát/đã kết thúc và giữ lựa chọn mute. Dừng clip cũ để tránh hai nguồn âm thanh.
 

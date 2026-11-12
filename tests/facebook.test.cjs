@@ -122,7 +122,7 @@ test('Facebook detects visible Sponsored/Được tài trợ disclosures, includ
   app.nodes.splice(0, app.nodes.length, app.make('unreadable split letters', { 'aria-label': 'Sponsored' }, { disclosure: false }));
   assert.equal(app.check(), true);
   app.nodes.splice(0, app.nodes.length, app.make('Sponsored', {}, { disclosure: false }));
-  assert.equal(app.check(), false); // Plain caption spans are not disclosure links.
+  assert.equal(app.check(), true); // Standalone disclosure needs neither link semantics nor CTA.
 });
 
 test('Facebook ignores ad keywords in captions/comments and hidden/preloaded disclosure labels', () => {
@@ -136,16 +136,23 @@ test('Facebook ignores ad keywords in captions/comments and hidden/preloaded dis
   assert.equal(fb.isSponsored(null, visibleArea), false);
 });
 
-test('Facebook detects the screenshot layout: plain Được tài trợ below Mua ngay', () => {
+test('Facebook detects standalone disclosures regardless of CTA text or presence', () => {
   const app = sponsoredFixture();
   const disclosure = app.make('Được tài trợ', {}, { disclosure: false });
   const cta = app.make('Mua ngay');
   app.card.querySelectorAll = selector => selector.startsWith('button,') ? [cta] : [disclosure];
   assert.equal(app.check(), true);
-  cta.innerText = 'Shop now'; disclosure.innerText = 'Sponsored';
-  assert.equal(app.check(), true);
+  for (const text of ['Xem chi tiết', 'Xem  chi  tiết', 'Đánh giá', 'Mua ngay', 'Shop now', 'View details', 'Nội dung nút bất kỳ']) {
+    cta.innerText = text;
+    assert.equal(app.check(), true, text);
+  }
   cta.visible = false;
-  assert.equal(app.check(), false);
+  assert.equal(app.check(), true);
+  app.card.querySelectorAll = selector => {
+    if (selector.startsWith('button,')) throw new Error('Disclosure detection must not depend on CTAs');
+    return [disclosure];
+  };
+  assert.equal(app.check(), true);
   cta.visible = true;
   app.card.querySelectorAll = selector => selector.startsWith('button,') ? [cta] : [app.make('Được tài trợ', {}, { excluded: true, disclosure: false })];
   assert.equal(app.check(), false);
@@ -182,4 +189,16 @@ test('Facebook scope never crosses into a neighbouring Reel containing an ad or 
   const card = { parentElement: feed, ownerDocument: sourceDoc, matches: () => false, querySelectorAll: () => [] };
   assert.equal(fb.sponsoredScope(card), card);
   assert.equal(fb.isSponsored(card, visibleArea), false);
+});
+
+test('Facebook never classifies a Reel as sponsored from the action button alone', () => {
+  const app = sponsoredFixture();
+  for (const text of ['Xem chi tiết', 'Đánh giá', 'Mua ngay', 'Shop now']) {
+    app.nodes.splice(0, app.nodes.length, app.make(text));
+    assert.equal(app.check(), false, text);
+  }
+  for (const text of ['Sponsored', 'Được tài trợ', 'Video này được tài trợ bởi nhãn hàng']) {
+    app.nodes.splice(0, app.nodes.length, app.make(text, {}, { excluded: true, disclosure: false }));
+    assert.equal(app.check(), false, text); // Excluded caption/comment/heading remains excluded.
+  }
 });
