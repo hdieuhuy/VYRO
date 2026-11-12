@@ -80,6 +80,7 @@ test('custom PiP moves the real video, provides controls and restores it on clos
   await app.open();
   assert.equal(app.api.video(), first);
   assert.equal(first.parent.id, 'stage');
+  assert.equal(app.api.anchor().getAttribute('data-vyro-pip-marker'), 'true');
   assert.equal(app.pipDoc.keydown, app.keyHandler);
   app.pipDoc.getElementById('play').events.click();
   assert.equal(first.paused, true);
@@ -235,5 +236,25 @@ test('Facebook PiP does not resume a deliberately paused session while switching
   app.pipDoc.getElementById('play').events.click();
   const next = app.video(false); next.paused = true; app.setSource(next); app.api.update();
   assert.equal(next.paused, true);
+  app.win.close();
+});
+
+test('Facebook PiP holds the window through Sponsored clips and resumes with the saved mute choice', async () => {
+  const app = fixture({ resumeOnSwitch: true, canMountVideo: video => !video.sponsored });
+  const first = app.video(false); app.setSource(first); await app.open();
+  app.pipDoc.getElementById('mute').events.click();
+  app.api.suspend('Đang bỏ qua quảng cáo…');
+  const ad = app.video(false); ad.sponsored = true;
+  app.setSource(ad); app.api.update();
+  assert.equal(app.api.video(), first);
+  assert.equal(first.paused, true);
+  assert.equal(app.win.closed, false);
+  assert.equal(app.pipDoc.getElementById('pip-notice').hidden, false);
+  const next = app.video(false); next.paused = true;
+  app.setSource(next); app.api.update();
+  assert.equal(app.api.video(), next);
+  assert.equal(next.paused, false);
+  assert.equal(next.muted, true);
+  assert.equal(ad.parent, app.sourceDoc.body);
   app.win.close();
 });

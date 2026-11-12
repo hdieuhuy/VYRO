@@ -5,6 +5,25 @@
 - Thiết kế popup VYRO theo hướng tối, gọn, mạnh.
 - Tiếp tục nghiệm thu Facebook Reels beta trên trình duyệt thật.
 
+## [1.6.0] - 2026-11-12
+
+### Added
+- PiP gốc Chrome cho video YouTube thường tại `/watch?v=...`, mở/đóng qua nút PiP YouTube trên trang.
+- Chọn video thuộc player chính, bỏ qua preview/gợi ý; giữ nguyên phần tử video và style trong tab nguồn.
+- Popup phân biệt PiP gốc Chrome của video thường với PiP riêng của Shorts/Reels, giải thích công tắc auto chỉ áp dụng cho Shorts.
+- Tự bỏ qua Facebook Reel được tài trợ/Sponsored, kể cả khi tắt tự chuyển clip thường; giữ PiP và lựa chọn mute khi tiếp tục clip thường.
+
+### Fixed
+- Nhận diện nhãn quảng cáo bằng chữ thuần dưới CTA Mua ngay/Shop now và metadata ở tab nguồn khi video đang trong PiP.
+- Tính phần giữ chỗ PiP như một player để vùng kiểm tra quảng cáo không tràn sang Reel khác; bỏ qua caption/bình luận và nhãn ẩn.
+- Điều hướng quảng cáo có cooldown và tối đa 8 lần thử mỗi mục, tránh chuyển trùng; Skip thủ công cho phép thử lại.
+
+### Behavior / validation
+- PiP YouTube thường mở bằng thao tác click; hiển thị lỗi khi metadata/API chưa sẵn sàng, chặn mở trùng và khôi phục thuộc tính disablepictureinpicture sau khi đóng/lỗi.
+- Không tự phát video đang tạm dừng; phím/lệnh Skip Shorts không điều hướng video thường.
+- 97 kiểm tra tự động đạt. Môi trường phát triển chưa kiểm chứng trực tiếp các thay đổi mới trên Chrome/Facebook thật.
+- GitHub Release kèm `vyro.zip`, `vyro-1.6.0.zip` và SHA-256. Bao gồm các bản sửa local 1.5.1/1.5.2 chưa phát hành riêng.
+
 ## [1.5.0] - 2026-11-11
 
 ### Added

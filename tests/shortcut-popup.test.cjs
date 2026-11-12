@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.join(__dirname, '../extension');
 
-async function setupPopup(platform = 'youtube', connected = true) {
+async function setupPopup(platform = 'youtube', connected = true, pipMode = 'custom') {
   const elements = new Map();
   const handlers = {};
   const saved = [];
@@ -23,9 +23,9 @@ async function setupPopup(platform = 'youtube', connected = true) {
       getElementById: element,
       addEventListener: (type, callback) => { handlers[type] = callback; }
     },
-    chrome: { runtime: { getManifest: () => ({ version: '1.5.0' }) }, tabs: { query: async () => [{ id: 7 }], sendMessage: async () => {
+    chrome: { runtime: { getManifest: () => ({ version: '1.6.0' }) }, tabs: { query: async () => [{ id: 7 }], sendMessage: async () => {
       if (!connected) throw new Error('Content script not loaded');
-      return { platform };
+      return { platform, pipMode };
     } }, commands: { getAll: async () => [{ name: 'skip-short', shortcut: 'Command+Shift+9' }] }, storage: { local: {
       get: async () => ({ enabled: true, enabledTikTok: false, enabledFacebook: false }),
       set: async settings => { saved.push(JSON.parse(JSON.stringify(settings))); }
@@ -66,7 +66,7 @@ test('popup records, persists, cancels and restores a custom shortcut', async ()
 
 test('popup reports missing content script and shows loaded build version', async () => {
   const { element } = await setupPopup('tiktok', false);
-  assert.match(element('build-version').textContent, /1\.5\.0/);
+  assert.match(element('build-version').textContent, /1\.6\.0/);
   assert.match(element('connection-status').textContent, /Chưa kết nối/);
   assert.match(element('connection-status').textContent, /tải lại tab/);
 });
@@ -97,9 +97,17 @@ test('popup detects Facebook Reels and keeps its auto setting separate', async (
   await element('enabled').handlers.change();
   assert.deepEqual(saved.at(-1), { enabledFacebook: true });
   assert.match(element('status').textContent, /Facebook Reels/);
+  assert.match(element('status').textContent, /Reel được tài trợ luôn bật/);
   element('platform').value = 'tiktok'; element('platform').handlers.change(); await flush();
   element('enabled').checked = true; await element('enabled').handlers.change();
   assert.deepEqual(saved.at(-1), { enabledTikTok: true });
   element('platform').value = 'facebook'; element('platform').handlers.change(); await flush();
   assert.match(element('status').textContent, /Facebook Reels/);
+});
+
+test('popup explains native PiP on YouTube watch and keeps the auto setting scoped to Shorts', async () => {
+  const { element } = await setupPopup('youtube', true, 'native-youtube');
+  assert.match(element('connection-status').textContent, /PiP YouTube/);
+  assert.match(element('connection-status').textContent, /gốc Chrome/);
+  assert.match(element('status').textContent, /áp dụng cho Shorts/);
 });

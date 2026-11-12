@@ -4,6 +4,7 @@ const status = document.getElementById("status");
 const platformSelect = document.getElementById("platform");
 let selectedPlatform = "youtube";
 let settingsRequest = 0;
+let youtubeWatchTab = false;
 document.getElementById("build-version").textContent = `Phiên bản ${chrome.runtime.getManifest().version}`;
 const enabledKey = () => selectedPlatform === "tiktok" ? "enabledTikTok" : selectedPlatform === "facebook" ? "enabledFacebook" : "enabled";
 const platformName = () => selectedPlatform === "tiktok" ? "TikTok" : selectedPlatform === "facebook" ? "Facebook Reels" : "YouTube Shorts";
@@ -49,6 +50,8 @@ const describe = () => {
   status.textContent = toggle.checked
     ? `Đang bật · Tự chuyển video ${platformName()} khi kết thúc.`
     : `Đã tắt tự chuyển ${platformName()} · Skip và PiP vẫn dùng được.`;
+  if (youtubeWatchTab && selectedPlatform === "youtube") status.textContent += " Công tắc này áp dụng cho Shorts; video YouTube thường dùng PiP gốc Chrome.";
+  if (selectedPlatform === "facebook") status.textContent += " Tự bỏ qua Reel được tài trợ luôn bật.";
 };
 async function loadSettings() {
   const request = ++settingsRequest;
@@ -73,8 +76,10 @@ async function initialize() {
       const response = await chrome.tabs.sendMessage(tab.id, { type: "vyro-status" });
       if (["youtube", "tiktok", "facebook"].includes(response?.platform)) {
         selectedPlatform = response.platform;
+        youtubeWatchTab = response.pipMode === "native-youtube";
         connection.textContent = response.supported === false
           ? "Tab đã kết nối · PiP chưa hỗ trợ loại trang này. Hãy mở một video."
+          : youtubeWatchTab ? "Tab đã kết nối · Video YouTube thường: bấm PiP YouTube ↗ ở góc dưới bên phải trang để mở PiP gốc Chrome."
           : "Tab đã kết nối · Nút PiP riêng nằm ở góc dưới bên phải trang video.";
       } else throw new Error("No supported content script response");
     } else {

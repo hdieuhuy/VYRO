@@ -36,6 +36,49 @@ globalThis.VyroFacebook = {
     return [...doc.querySelectorAll('form[action*="login"], iframe[src*="captcha"], [role="alertdialog"]')]
       .some(node => visibleArea(node) > 0);
   },
+  sponsoredScope(container) {
+    if (!container || container.matches?.('article, [role="article"]')) return container;
+    let scope = container;
+    // The disclosure/CTA can be a sibling of the video wrapper. Include that
+    // metadata, but stop before crossing into another Reel. A PiP marker is
+    // counted as a player, since the real video is in a different document.
+    for (let parent = scope.parentElement; parent && parent !== container.ownerDocument?.body; parent = parent.parentElement) {
+      if (parent.querySelectorAll('video, [data-vyro-pip-marker]').length > 1) break;
+      scope = parent;
+      if (parent.matches('article, [role="article"], [role="main"], [role="dialog"]')) break;
+    }
+    return scope;
+  },
+  isSponsored(container, visibleArea) {
+    if (!container) return false;
+    const scope = this.sponsoredScope(container);
+    const label = /^(sponsored|được tài trợ|quảng cáo|advertisement|ad)$/i;
+    const normalize = value => (value || '').normalize('NFC')
+      .replace(/[\u200B-\u200F\u2060\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+    const excluded = '[hidden], [aria-hidden="true"], [data-ad-preview="message"], [data-ad-comet-preview="message"], [role="textbox"], [role="comment"], [data-testid="UFI2Comment/body"]';
+    const belongsToReel = node => {
+      if (node.closest(excluded)) return false;
+      const article = node.closest('article, [role="article"]');
+      return !article || article === scope || article === container;
+    };
+    let hasCta;
+    const purchaseCta = /^(mua ngay|shop now|tìm hiểu thêm|learn more|đăng ký|sign up|đặt ngay|book now|nhắn tin|send message|tải xuống|download)$/i;
+    const hasPurchaseCta = () => hasCta ??= [...scope.querySelectorAll('button, [role="button"], a, [role="link"]')]
+      .some(node => purchaseCta.test(normalize(node.getAttribute('aria-label') || node.innerText || node.textContent)) &&
+        belongsToReel(node) && visibleArea(node) > 0);
+    // Some Reels render the disclosure as plain text below a Shop now CTA,
+    // without link semantics or aria-label. Require that extra ad signal.
+    return [...scope.querySelectorAll('a, [role="link"], [aria-label], [data-ad-rendering-role="sponsor_link"], span, div')]
+      .some(node => {
+        const accessibleName = normalize(node.getAttribute('aria-label'));
+        const text = normalize(node.innerText ?? node.textContent);
+        if (!label.test(accessibleName) && !label.test(text)) return false;
+        if (!belongsToReel(node) || visibleArea(node) <= 0) return false;
+        if (label.test(accessibleName)) return true;
+        const disclosure = node.matches('a, [role="link"], [data-ad-rendering-role="sponsor_link"]');
+        return label.test(text) && (disclosure || hasPurchaseCta());
+      });
+  },
   nextButtons(doc, container, visibleArea) {
     const viewer = container?.closest?.('[role="dialog"]') || container?.closest?.('[role="main"]') || doc;
     const names = /^(next (?:reel|video)|(?:reel|video|thước phim) tiếp theo|chuyển đến (?:reel|video|thước phim) tiếp theo)$/i;

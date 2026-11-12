@@ -80,6 +80,7 @@ globalThis.ShortsPip = {
       if (!video || video === moved?.video || !floating || floating.closed) return;
       restore();
       const marker = document.createElement("div");
+      marker.setAttribute("data-vyro-pip-marker", "true");
       marker.textContent = "Đang xem trong PiP riêng";
       marker.style.cssText = "position:absolute;inset:0;display:grid;place-items:center;background:#151515;color:#eee;font:16px system-ui";
       const renderer = options.rendererOf ? options.rendererOf(video) : video.closest("ytd-reel-video-renderer");
@@ -163,7 +164,7 @@ globalThis.ShortsPip = {
         return;
       }
       if (options.canMountVideo && !options.canMountVideo(video)) {
-        launch.textContent = "Đang bỏ qua LIVE/bài ảnh · Chờ clip thường";
+        launch.textContent = "Đang chờ clip thường · Thử lại sau khi chuyển clip";
         return;
       }
       if (!globalThis.documentPictureInPicture?.requestWindow) {

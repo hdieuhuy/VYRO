@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../extension/content.js'), 'utf8');
 const shortcutSource = fs.readFileSync(path.join(__dirname, '../extension/shortcut.js'), 'utf8');
+const youtubePipSource = fs.readFileSync(path.join(__dirname, '../extension/youtube-pip.js'), 'utf8');
 const facebookSource = fs.readFileSync(path.join(__dirname, '../extension/facebook.js'), 'utf8');
 const tiktokSource = fs.readFileSync(path.join(__dirname, '../extension/tiktok.js'), 'utf8');
 
@@ -14,6 +15,7 @@ async function setup(platform = 'youtube') {
   const written = [];
   let pipOptions;
   let pipOpen = false, pipUpdates = 0, suspensions = 0;
+  let heldVideo = null, heldAnchor = null;
   const rect = { left: 100, top: 0, right: 500, bottom: 700 };
   const renderer = { hasAttribute: () => true, querySelector: () => null, querySelectorAll: () => [], nextElementSibling: null };
   function video() {
@@ -37,18 +39,19 @@ async function setup(platform = 'youtube') {
   };
   const doc = {
     hidden: false, videos: [first], buttons: [button], blockers: [], cards: [],
-    querySelectorAll: selector => selector === 'video' ? doc.videos : (selector.includes('verify-page') || selector.includes('alertdialog')) ? doc.blockers :
+    querySelectorAll: selector => selector === 'video' ? doc.videos : selector === '#movie_player video' ? (doc.watchVideos || []) : (selector.includes('verify-page') || selector.includes('alertdialog')) ? doc.blockers :
       selector.includes('article') && selector.includes('feed-live') ? doc.cards : doc.buttons,
     addEventListener: (type, callback) => { listeners[type] = callback; }
   };
   const location = { hostname: platform === 'tiktok' ? 'www.tiktok.com' : platform === 'facebook' ? 'www.facebook.com' : 'www.youtube.com',
     pathname: platform === 'tiktok' ? '/@creator/video/123456789' : platform === 'facebook' ? '/reel/123456789/' : '/shorts/one' };
-  vm.runInNewContext(tiktokSource + '\n' + facebookSource + '\n' + shortcutSource + '\n' + source, {
-    location, document: doc, innerWidth: 1200, innerHeight: 800,
+  vm.runInNewContext(tiktokSource + '\n' + facebookSource + '\n' + youtubePipSource + '\nVyroYouTubePip.create = () => ({ update() {} });\n' + shortcutSource + '\n' + source, {
+    URLSearchParams, location, document: doc, innerWidth: 1200, innerHeight: 800,
     performance: { now: () => clock },
     navigator: { platform: 'MacIntel' },
     ShortsPip: { create: options => { pipOptions = options; return {
-      update() { pipUpdates++; }, suspend() { suspensions++; }, isOpen: () => pipOpen, video: () => null, renderer: () => null
+      update() { pipUpdates++; }, suspend() { suspensions++; }, isOpen: () => pipOpen, video: () => heldVideo, renderer: () => heldVideo ? renderer : null,
+      anchor: () => heldAnchor, sourceIdentity: () => location.pathname
     }; } },
     getComputedStyle: () => ({ display: 'block', visibility: 'visible', opacity: '1', overflowY: 'auto' }),
     chrome: { runtime: { sendMessage: async () => {}, onMessage: { addListener: fn => { message = fn; } } }, storage: {
@@ -76,6 +79,7 @@ async function setup(platform = 'youtube') {
     },
     message: data => { let response; message(data, {}, value => { response = value; }); return response; },
     pipOptions: () => pipOptions, written,
+    holdInPip: (video, marker) => { heldVideo = video; heldAnchor = marker; pipOpen = true; },
     setPipOpen: open => { pipOpen = open; }, pipUpdates: () => pipUpdates, suspensions: () => suspensions,
     change: changes => change(changes, 'local')
   };
@@ -513,4 +517,141 @@ test('Facebook navigation pauses for visible login/captcha/alert dialogs', async
   app.first.ended = true; app.first.emit('ended');
   assert.equal(app.key(), false);
   assert.equal(app.clicks(), 0);
+});
+
+function addSponsoredLabel(app, label = 'Được tài trợ') {
+  const node = {
+    innerText: label,
+    closest: selector => selector.startsWith('article') ? app.renderer : null,
+    matches: () => true,
+    getAttribute: () => null,
+    getBoundingClientRect: () => ({ left: 100, top: 50, right: 220, bottom: 75 })
+  };
+  app.renderer.querySelectorAll = selector => selector.startsWith('a,') ? [node] : [];
+  return node;
+}
+
+test('Facebook sponsored Reels skip immediately with auto off, pause media and retain the PiP window', async () => {
+  const app = await setup('facebook'); app.setEnabled(false); app.setPipOpen(true);
+  addSponsoredLabel(app);
+  const updates = app.pipUpdates();
+  app.tick();
+  assert.equal(app.clicks(), 1);
+  assert.equal(app.first.paused, true);
+  assert.equal(app.first.currentTime, 0); // Did not wait for the clip to end.
+  assert.equal(app.pipUpdates(), updates); // Ad never mounted into PiP.
+  assert.ok(app.suspensions() > 0);
+  assert.equal(app.pipOptions().canMountVideo(app.first), false);
+  assert.equal(app.message({ type: 'shorts-query-pip' }).pip, true);
+  app.tick(); app.key();
+  assert.equal(app.clicks(), 1); // Poll/shortcut cannot cause duplicate navigation.
+  app.renderer.querySelectorAll = () => [];
+  app.location.pathname = '/reel/222/'; app.doc.videos = [app.video()]; app.tick();
+  assert.ok(app.pipUpdates() > updates);
+  assert.equal(app.pipOptions().canMountVideo(app.doc.videos[0]), true);
+  assert.equal(app.message({ type: 'vyro-status' }).enabled, false);
+});
+
+test('Facebook sponsored skip also works without PiP and consecutive ads start fresh retry counts', async () => {
+  const app = await setup('facebook'); app.setEnabled(false); addSponsoredLabel(app, 'Sponsored');
+  app.tick();
+  assert.equal(app.clicks(), 1);
+  assert.equal(app.suspensions(), 0);
+  app.advanceClock(1300); app.location.pathname = '/reel/999/'; app.first.currentSrc = 'blob:second-ad'; app.tick();
+  assert.equal(app.clicks(), 2);
+  assert.equal(app.message({ type: 'shorts-skip-native' }).ok, true);
+  assert.equal(app.clicks(), 2);
+});
+
+test('Facebook sponsored retries are bounded and manual Skip can retry after the limit', async () => {
+  const app = await setup('facebook'); app.setEnabled(false); addSponsoredLabel(app);
+  app.tick();
+  for (let i = 0; i < 12; i++) { app.advanceClock(1300); app.tick(); }
+  assert.equal(app.clicks(), 8);
+  assert.equal(app.key(), true);
+  assert.equal(app.clicks(), 9);
+});
+
+test('Facebook never skips hidden ads without PiP or clicks through login dialogs', async () => {
+  const app = await setup('facebook'); app.setEnabled(false); addSponsoredLabel(app);
+  app.doc.hidden = true; app.tick();
+  assert.equal(app.clicks(), 0);
+  app.setPipOpen(true); app.doc.blockers = [{ getBoundingClientRect: () => ({ left: 0, top: 0, right: 500, bottom: 500 }) }];
+  app.tick();
+  assert.equal(app.clicks(), 0);
+  assert.equal(app.message({ type: 'shorts-skip-native' }).ok, false);
+  app.doc.blockers = []; app.tick();
+  assert.equal(app.clicks(), 1);
+});
+
+test('Facebook sponsored labels outside Reels and ordinary captions never trigger ad skip', async () => {
+  const app = await setup('facebook'); app.setEnabled(false);
+  const node = addSponsoredLabel(app, 'Review các quảng cáo được tài trợ');
+  app.tick();
+  assert.equal(app.clicks(), 0);
+  node.innerText = 'Sponsored';
+  for (const route of ['/', '/watch/', '/stories/123']) {
+    app.location.pathname = route; app.tick();
+    assert.equal(app.clicks(), 0);
+  }
+});
+
+test('Facebook ended-event and ad poll share navigation cooldown instead of advancing twice', async () => {
+  const app = await setup('facebook');
+  app.first.ended = true; app.first.emit('ended');
+  assert.equal(app.clicks(), 1);
+  addSponsoredLabel(app); app.tick(); app.tick();
+  assert.equal(app.clicks(), 1);
+  app.advanceClock(1300); app.tick();
+  assert.equal(app.clicks(), 2);
+});
+
+test('Facebook skips plain sponsored metadata beside a PiP-held player, with no video left in the source document', async () => {
+  const app = await setup('facebook'); app.setEnabled(false);
+  const marker = { getBoundingClientRect: () => ({ left: 100, top: 0, right: 500, bottom: 700 }) };
+  app.holdInPip(app.first, marker); app.doc.videos = [];
+  const disclosure = {
+    innerText: 'Được tài trợ', getAttribute: () => null, closest: () => null, matches: () => false,
+    getBoundingClientRect: () => ({ left: 120, top: 650, right: 260, bottom: 675 })
+  };
+  const cta = {
+    innerText: 'Mua ngay', getAttribute: () => null, closest: () => null,
+    getBoundingClientRect: () => ({ left: 120, top: 600, right: 480, bottom: 640 })
+  };
+  const shell = {
+    matches: () => true,
+    querySelectorAll: selector => selector === 'video, [data-vyro-pip-marker]' ? [marker] : selector.startsWith('button,') ? [cta] : [disclosure]
+  };
+  app.renderer.parentElement = shell;
+  const updates = app.pipUpdates();
+  app.tick();
+  assert.equal(app.clicks(), 1);
+  assert.equal(app.first.paused, true);
+  assert.equal(app.pipUpdates(), updates);
+  assert.equal(app.pipOptions().canMountVideo(app.first), false);
+  assert.ok(app.suspensions() > 0);
+  shell.querySelectorAll = selector => selector === 'video, [data-vyro-pip-marker]' ? [marker] : [];
+  app.location.pathname = '/reel/222/'; app.first.currentSrc = 'blob:ordinary'; app.tick();
+  assert.ok(app.pipUpdates() > updates);
+  assert.equal(app.pipOptions().canMountVideo(app.first), true);
+});
+
+test('YouTube watch reports native PiP support but never invokes Shorts next, including native skip commands', async () => {
+  const app = await setup();
+  app.location.pathname = '/watch'; app.location.search = '?v=abc123';
+  app.doc.watchVideos = [app.first]; app.tick();
+  const status = app.message({ type: 'vyro-status' });
+  assert.equal(status.supported, true);
+  assert.equal(status.pipMode, 'native-youtube');
+  assert.equal(status.hasVideo, true);
+  app.first.ended = true; app.first.emit('ended'); app.tick();
+  assert.equal(app.key(), false);
+  assert.equal(app.message({ type: 'shorts-skip-native' }).ok, false);
+  app.doc.pictureInPictureElement = app.first;
+  assert.equal(app.message({ type: 'shorts-query-pip' }).pip, false);
+  assert.equal(app.clicks(), 0);
+  app.location.pathname = '/shorts/two'; app.location.search = ''; app.first.ended = false; app.tick();
+  assert.equal(app.message({ type: 'vyro-status' }).pipMode, 'custom');
+  app.first.emit('ended');
+  assert.equal(app.clicks(), 1);
 });

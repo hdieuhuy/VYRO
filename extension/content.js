@@ -14,6 +14,7 @@
   let pendingManual = false;
   let shortcut = ShortsShortcut.normalize();
   let pip = null;
+  let watchPip = null;
   let skippingPost = false;
   let skippedContainer = null;
   let skippedTarget = null;
@@ -22,11 +23,14 @@
   let skippedKind = "LIVE";
   let skippedIdentity = "";
   let manualSeekUntil = 0;
+  let sponsoredSkip = null;
+  let lastSponsoredAttempt = -Infinity;
   const isTikTok = VyroTikTok.isHost(location.hostname);
   const isFacebook = VyroFacebook.isHost(location.hostname);
   const adapter = isTikTok ? VyroTikTok : isFacebook ? VyroFacebook : null;
   const platform = isTikTok ? "tiktok" : isFacebook ? "facebook" : "youtube";
   const enabledKey = isTikTok ? "enabledTikTok" : isFacebook ? "enabledFacebook" : "enabled";
+  const isYouTubeWatch = () => !adapter && VyroYouTubePip.isPage(location);
 
   const isShorts = () => isTikTok ? VyroTikTok.canOpenPip(location.pathname) : isFacebook ? VyroFacebook.isPage(location.pathname) : /^\/shorts\/[^/]+/.test(location.pathname);
   const rendererOf = video => video === pip?.video() ? pip.renderer() :
@@ -84,6 +88,7 @@
   }
 
   function canAdvance(manual = false) {
+    if (isFacebook && sponsoredSkip) return isShorts() && canWatch() && !VyroFacebook.blocked(document, visibleArea);
     if (isTikTok && skippingPost) return canWatch() && !VyroTikTok.blocked(document, visibleArea);
     return (enabled || manual) && isShorts() && canWatch() && active &&
       currentVideo() === active && !isAd(active) &&
@@ -93,6 +98,7 @@
   }
 
   function nextShort(manual = false) {
+    if (isFacebook && handleFacebookSponsored(manual)) return;
     if (isTikTok && skippingPost) { advancePastUnsupported(); return; }
     if (!canAdvance(manual) || performance.now() - lastAttempt < 1200) return;
     pending = true;
@@ -214,7 +220,37 @@
     return true;
   }
 
+  function handleFacebookSponsored(manual = false) {
+    if (!isFacebook || !isShorts()) { sponsoredSkip = null; return false; }
+    if (!canWatch()) return false;
+    const video = sourceVideo();
+    const container = video && rendererOf(video);
+    if (!VyroFacebook.isSponsored(container, visibleArea)) { sponsoredSkip = null; return false; }
+    const key = location.pathname + "|" + (video.currentSrc || "");
+    if (!sponsoredSkip || sponsoredSkip.container !== container || sponsoredSkip.key !== key) {
+      sponsoredSkip = { container, key, attempts: 0 };
+    }
+    // Cancel the normal clip's listeners/retries before pausing or navigating.
+    lastSponsoredAttempt = Math.max(lastSponsoredAttempt, lastAttempt);
+    if (active) detach();
+    if (!video.paused) video.pause();
+    if (pip?.isOpen()) pip.suspend("Đang bỏ qua quảng cáo…");
+    if (VyroFacebook.blocked(document, visibleArea)) return true;
+    if (manual && sponsoredSkip.attempts >= 8) sponsoredSkip.attempts = 0;
+    if (sponsoredSkip.attempts >= 8) {
+      if (pip?.isOpen()) pip.suspend("Chưa bỏ qua được quảng cáo · Hãy dùng nút tiếp theo ở tab nguồn");
+      return true;
+    }
+    if (performance.now() - lastSponsoredAttempt < 1200) return true;
+    lastSponsoredAttempt = performance.now();
+    VyroFacebook.advance({ doc: document, container, stage: sponsoredSkip.attempts++ % 3,
+      visibleArea, getStyle: getComputedStyle });
+    return true;
+  }
+
   function reconcile() {
+    watchPip?.update();
+    if (handleFacebookSponsored()) return;
     if (handleUnsupportedPost()) return;
     pip?.update();
     if (!isShorts() || !canWatch()) {
@@ -284,13 +320,15 @@
       if (ok) nextShort(true);
       respond({ ok });
     } else if (message?.type === "vyro-status") {
-      respond({ platform, supported: isShorts(), enabled, hasVideo: !!currentVideo() });
+      respond({ platform, supported: isShorts() || isYouTubeWatch(), enabled,
+        pipMode: isYouTubeWatch() ? "native-youtube" : "custom",
+        hasVideo: !!(isYouTubeWatch() ? VyroYouTubePip.findVideo(document, getComputedStyle) : currentVideo()) });
     }
   });
   pip = ShortsPip.create({
     isShorts, findVideo: sourceVideo,
     resumeOnSwitch: isFacebook,
-    canMountVideo: video => isFacebook ? VyroFacebook.canMount(video) : !isTikTok || (!VyroTikTok.isLiveRoute(location.pathname) && !VyroTikTok.isPhotoRoute(location.pathname) &&
+    canMountVideo: video => isFacebook ? VyroFacebook.canMount(video) && !VyroFacebook.isSponsored(rendererOf(video), visibleArea) : !isTikTok || (!VyroTikTok.isLiveRoute(location.pathname) && !VyroTikTok.isPhotoRoute(location.pathname) &&
       !VyroTikTok.isLive(VyroTikTok.container(video), video) && !VyroTikTok.isPhoto(VyroTikTok.container(video), video)),
     enabled: () => enabled,
     toggleAuto: () => chrome.storage.local.set({ [enabledKey]: !enabled }).catch(console.warn),
@@ -302,6 +340,7 @@
     onKey: onShortcut
   });
   pip.update();
+  if (!adapter) watchPip = VyroYouTubePip.create();
   document.addEventListener("pointerdown", event => {
     if (event.target?.closest?.('input[type="range"], [role="slider"], [data-e2e*="seek"], [data-e2e*="progress"]')) {
       manualSeekUntil = performance.now() + 1500;

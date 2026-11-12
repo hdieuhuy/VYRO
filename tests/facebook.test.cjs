@@ -99,3 +99,87 @@ test('Facebook PiP rejects live streams without rejecting ordinary or loading cl
   assert.equal(fb.canMount({ duration: 30 }), true);
   assert.equal(fb.canMount({ duration: NaN }), true);
 });
+
+function sponsoredFixture() {
+  const nodes = [];
+  const card = { querySelectorAll: () => nodes };
+  const make = (text, attributes = {}, options = {}) => ({
+    innerText: text, textContent: text,
+    getAttribute: name => attributes[name] || null,
+    matches: () => options.disclosure !== false,
+    closest: selector => selector.startsWith('article') ? (options.nested ? {} : card) : options.excluded ? {} : null,
+    ...options
+  });
+  return { nodes, card, make, check: () => fb.isSponsored(card, visibleArea) };
+}
+
+test('Facebook detects visible Sponsored/Được tài trợ disclosures, including accessible and split labels', () => {
+  const app = sponsoredFixture();
+  for (const text of ['Sponsored', 'Được tài trợ', '  Được\u00a0tài\u00a0trợ  ', 'Spon\u200bsored', 'Quảng cáo', 'Ad']) {
+    app.nodes.splice(0, app.nodes.length, app.make(text));
+    assert.equal(app.check(), true, text);
+  }
+  app.nodes.splice(0, app.nodes.length, app.make('unreadable split letters', { 'aria-label': 'Sponsored' }, { disclosure: false }));
+  assert.equal(app.check(), true);
+  app.nodes.splice(0, app.nodes.length, app.make('Sponsored', {}, { disclosure: false }));
+  assert.equal(app.check(), false); // Plain caption spans are not disclosure links.
+});
+
+test('Facebook ignores ad keywords in captions/comments and hidden/preloaded disclosure labels', () => {
+  const app = sponsoredFixture();
+  for (const node of [app.make('Why this video is Sponsored'), app.make('Sponsored', {}, { nested: true }),
+    app.make('Được tài trợ', {}, { excluded: true }), app.make('Sponsored', {}, { visible: false }),
+    app.make('Không được tài trợ'), app.make('Paid partnership')]) {
+    app.nodes.splice(0, app.nodes.length, node);
+    assert.equal(app.check(), false);
+  }
+  assert.equal(fb.isSponsored(null, visibleArea), false);
+});
+
+test('Facebook detects the screenshot layout: plain Được tài trợ below Mua ngay', () => {
+  const app = sponsoredFixture();
+  const disclosure = app.make('Được tài trợ', {}, { disclosure: false });
+  const cta = app.make('Mua ngay');
+  app.card.querySelectorAll = selector => selector.startsWith('button,') ? [cta] : [disclosure];
+  assert.equal(app.check(), true);
+  cta.innerText = 'Shop now'; disclosure.innerText = 'Sponsored';
+  assert.equal(app.check(), true);
+  cta.visible = false;
+  assert.equal(app.check(), false);
+  cta.visible = true;
+  app.card.querySelectorAll = selector => selector.startsWith('button,') ? [cta] : [app.make('Được tài trợ', {}, { excluded: true, disclosure: false })];
+  assert.equal(app.check(), false);
+});
+
+test('Facebook plain labels still ignore comments and text containing sponsored keywords beside a CTA', () => {
+  const app = sponsoredFixture();
+  const cta = app.make('Mua ngay');
+  for (const disclosure of [app.make('Được tài trợ', {}, { nested: true, disclosure: false }),
+    app.make('Review video được tài trợ', {}, { disclosure: false }), app.make('Sponsored', {}, { visible: false, disclosure: false })]) {
+    app.card.querySelectorAll = selector => selector.startsWith('button,') ? [cta] : [disclosure];
+    assert.equal(app.check(), false);
+  }
+});
+
+test('Facebook includes sibling disclosure metadata after moving the video into PiP', () => {
+  const app = sponsoredFixture();
+  const marker = {};
+  const disclosure = app.make('Được tài trợ', {}, { disclosure: false, closest: () => null });
+  const cta = app.make('Mua ngay', {}, { closest: () => null });
+  const sourceDoc = { body: {} };
+  const shell = {
+    matches: () => true,
+    querySelectorAll: selector => selector === 'video, [data-vyro-pip-marker]' ? [marker] : selector.startsWith('button,') ? [cta] : [disclosure]
+  };
+  const wrapper = { parentElement: shell, ownerDocument: sourceDoc, matches: () => false, querySelectorAll: () => [] };
+  assert.equal(fb.sponsoredScope(wrapper), shell);
+  assert.equal(fb.isSponsored(wrapper, visibleArea), true);
+});
+
+test('Facebook scope never crosses into a neighbouring Reel containing an ad or a second PiP marker', () => {
+  const sourceDoc = { body: {} };
+  const feed = { querySelectorAll: () => [{}, {}] };
+  const card = { parentElement: feed, ownerDocument: sourceDoc, matches: () => false, querySelectorAll: () => [] };
+  assert.equal(fb.sponsoredScope(card), card);
+  assert.equal(fb.isSponsored(card, visibleArea), false);
+});
