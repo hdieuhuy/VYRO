@@ -25,8 +25,11 @@
   <p id="status" role="status" aria-live="polite">Đang tải cài đặt…</p>
   <section class="shortcut" aria-labelledby="pip-title">
     <h2 id="pip-title">Picture in Picture</h2>
-    <p class="hint">Trên YouTube Shorts, TikTok hoặc Facebook Reels, bấm nút đỏ <strong>PiP riêng ↗</strong> để mở cửa sổ có Skip, phát/tạm dừng, tiếng và tua video. Phím tùy chỉnh bên dưới dùng được khi chọn cửa sổ PiP riêng.</p>
-    <p class="hint">Với video YouTube thường, bấm <strong>PiP YouTube ↗</strong> trên trang để dùng cửa sổ nổi gốc Chrome, tương tự extension PiP của Google. Công tắc tự chuyển ở trên chỉ áp dụng cho Shorts.</p>
+    <button id="pip-toggle" type="button" disabled aria-pressed="false" aria-describedby="pip-control-status">Đang kiểm tra PiP…</button>
+    <p id="pip-control-status" class="hint" role="status" aria-live="polite">Điều khiển PiP của tab hiện tại.</p>
+    <p class="hint">Bấm Mở PiP/Đóng PiP để điều khiển video ở tab hiện tại. Nút nổi trên trang đã được ẩn.</p>
+    <p class="hint">Trên YouTube Shorts, TikTok hoặc Facebook Reels, <strong>Mở PiP</strong> tạo cửa sổ có Skip, phát/tạm dừng, tiếng và tua video. Phím tùy chỉnh bên dưới dùng được khi chọn cửa sổ PiP riêng.</p>
+    <p class="hint">Với video YouTube thường, bấm <strong>Mở PiP</strong> trong popup để dùng cửa sổ nổi gốc Chrome, tương tự extension PiP của Google. Công tắc tự chuyển ở trên chỉ áp dụng cho Shorts.</p>
     <p class="hint">Với PiP của extension khác, thử phím cấp Chrome: <strong id="native-shortcut">Đang tải…</strong></p>
     <button id="chrome-shortcuts" type="button" class="reset">Đổi phím PiP trong Chrome</button>
     <p class="hint">Chọn phạm vi Global / Toàn cục để dùng khi cửa sổ khác có focus. Phím này được Chrome quản lý riêng với phím trong trang.</p>

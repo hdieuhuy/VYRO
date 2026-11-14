@@ -4,7 +4,7 @@
 
 Chrome extension giúp tự chuyển YouTube Shorts, TikTok và Facebook Reels, skip bằng phím tắt và xem video trong cửa sổ Picture in Picture có controls riêng.
 
-> Phiên bản hiện tại: **1.6.1**. Tải ZIP cài đặt ở nút bên dưới; xem [ghi chú bản 1.6.1](https://github.com/hdieuhuy/VYRO/releases/tag/v1.6.1) để biết các thay đổi. Facebook Reels đang ở giai đoạn beta.
+> Phiên bản hiện tại: **1.7.1**. Tải ZIP cài đặt ở nút bên dưới; xem [ghi chú bản 1.7.1](https://github.com/hdieuhuy/VYRO/releases/tag/v1.7.1) để biết các thay đổi. Facebook Reels đang ở giai đoạn beta.
 
 [![Latest release](https://img.shields.io/github/v/release/hdieuhuy/VYRO?label=version)](https://github.com/hdieuhuy/VYRO/releases/latest)
 [![Checks](https://github.com/hdieuhuy/VYRO/actions/workflows/ci.yml/badge.svg)](https://github.com/hdieuhuy/VYRO/actions/workflows/ci.yml)
@@ -18,7 +18,7 @@ Chrome extension giúp tự chuyển YouTube Shorts, TikTok và Facebook Reels, 
 - **Auto Next:** tự chuyển video YouTube Shorts/TikTok/Facebook Reels khi kết thúc; bật/tắt riêng từng nền tảng.
 - **Skip ngay:** chuyển clip trước khi xem hết bằng nút hoặc phím tắt.
 - **Phím tùy chỉnh:** ghi tổ hợp mới trực tiếp từ popup, có khôi phục mặc định.
-- **PiP cho video YouTube thường:** mở player chính trong cửa sổ nổi gốc Chrome bằng nút PiP YouTube; giữ player ở tab nguồn.
+- **PiP cho video YouTube thường:** mở player chính trong cửa sổ nổi gốc Chrome bằng nút Mở PiP trong popup; giữ player ở tab nguồn.
 - **PiP riêng:** cửa sổ nổi với phát/tạm dừng, âm thanh, skip, tự chuyển, tua video và về tab.
 - **Controls khi hover:** hiện khi đưa chuột vào PiP, ẩn khi rời chuột; hỗ trợ focus bàn phím.
 - **Khung hình vừa video:** giữ tỷ lệ, căn giữa và sửa lại khi player nguồn thay đổi style/kích thước.
@@ -73,7 +73,7 @@ Phím cục bộ không kích hoạt trong ô tìm kiếm/bình luận. Tổ h�
 
 ### Picture in Picture riêng
 
-1. Trên trang Shorts, video TikTok hoặc Facebook Reels, bấm nút đỏ **PiP riêng ↗** ở góc dưới bên phải.
+1. Trên trang Shorts, video TikTok hoặc Facebook Reels, bấm logo VYRO rồi **Mở PiP** (từ 1.7.1).
 2. Đưa chuột vào cửa sổ nổi để thấy controls.
 3. Dùng các icon phát/tạm dừng, âm thanh, skip, tự chuyển và về tab. Rê lên từng icon để xem nhãn.
 4. Bấm Skip hoặc tổ hợp cục bộ khi PiP có focus để chuyển ngay sang clip mới.
@@ -81,15 +81,26 @@ Phím cục bộ không kích hoạt trong ô tìm kiếm/bình luận. Tổ h�
 
 Giữ tab nguồn mở khi dùng PiP. Viền đen có thể xuất hiện khi tỷ lệ video khác cửa sổ; đây là cách hiển thị toàn bộ hình và giữ đúng tỷ lệ.
 
+### Điều khiển PiP ngay trong popup (từ 1.7.1)
+
+1. Đóng PiP cũ, cập nhật đầy đủ file bản 1.7.1, Reload extension trong `chrome://extensions` và xác nhận quyền mới nếu Chrome yêu cầu.
+2. Tải lại tab nguồn và mở/phát video. Bấm logo VYRO trên thanh công cụ.
+3. Trong mục **Picture in Picture**, bấm **Mở PiP**. YouTube thường dùng PiP gốc Chrome; Shorts/TikTok/Reels dùng PiP riêng.
+4. Mở lại popup và bấm **Đóng PiP** để đóng cửa sổ nổi của tab hiện tại. Trạng thái cũng cập nhật nếu đóng PiP bằng nút ×.
+
+Điều khiển áp dụng cho **tab đang mở popup**, độc lập với nền tảng bạn chọn để chỉnh công tắc auto. Không tự tìm/đóng PiP của tab khác. Nút bị vô hiệu khi tab không hỗ trợ, chưa có video sẵn sàng hoặc content script cần tải lại. Từ bản 1.7.1, nút nổi trên trang bị ẩn hẳn cả trước, trong và sau khi dùng PiP. Mọi thao tác mở/đóng thực hiện từ popup VYRO hoặc controls của cửa sổ PiP.
+
+Quyền mới `activeTab` và `scripting` cho phép thực thi thao tác PiP trong tab từ cú bấm popup. VYRO dùng bộ điều khiển của chính extension trong isolated world, không tải mã bên ngoài. Xem [Chrome scripting API](https://developer.chrome.com/docs/extensions/reference/api/scripting).
+
 ### PiP cho video YouTube thường (từ 1.6.0)
 
 1. Đóng PiP cũ, cập nhật đầy đủ file bản 1.6.0, Reload extension và tải lại tab YouTube.
 2. Mở một video thường có URL `https://www.youtube.com/watch?v=...`, chờ video tải hoặc bấm phát.
-3. Bấm nút đỏ **PiP YouTube ↗** ở góc dưới bên phải trang. Video mở trong cửa sổ Picture in Picture gốc Chrome, giống kiểu sử dụng extension PiP của Google.
+3. Bấm logo VYRO rồi **Mở PiP** trong popup (từ 1.7.1). Video mở trong cửa sổ Picture in Picture gốc Chrome, giống kiểu sử dụng extension PiP của Google.
 4. Chuyển tab hoặc sang ứng dụng khác để tiếp tục xem; dùng controls Chrome để phát/tạm dừng, đóng hoặc về tab. Giữ tab nguồn mở.
-5. Bấm **Đóng PiP YouTube** trên trang hoặc nút đóng của cửa sổ nổi để thoát.
+5. Bấm logo VYRO rồi **Đóng PiP**, hoặc dùng nút × của cửa sổ nổi. Từ bản 1.7.1, không còn nút nổi của VYRO trên trang.
 
-PiP video thường dùng `HTMLVideoElement.requestPictureInPicture()`, không di chuyển hoặc sửa khung hình player YouTube. Giao diện controls do Chrome quản lý. Nút mở cần thao tác click trực tiếp; không tự bật PiP khi vào trang. Công tắc tự chuyển và phím Skip Shorts không chuyển video thường. Các player preview ở trang chủ/kết quả tìm kiếm không được chọn. PiP riêng có controls tùy chỉnh vẫn dùng cho Shorts/TikTok/Reels.
+PiP video thường dùng `HTMLVideoElement.requestPictureInPicture()`, không di chuyển hoặc sửa khung hình player YouTube. Giao diện controls do Chrome quản lý. Mở PiP cần thao tác click nút trong popup; không tự bật PiP khi vào trang. Công tắc tự chuyển và phím Skip Shorts không chuyển video thường. Các player preview ở trang chủ/kết quả tìm kiếm không được chọn. PiP riêng có controls tùy chỉnh vẫn dùng cho Shorts/TikTok/Reels.
 
 Tài liệu API: [Chrome Picture in Picture](https://developer.chrome.com/blog/watch-video-using-picture-in-picture). Môi trường phát triển đã kiểm tra tự động, chưa kiểm chứng trực tiếp trên Chrome thật.
 
@@ -99,7 +110,7 @@ Tài liệu API: [Chrome Picture in Picture](https://developer.chrome.com/blog/w
 2. Tải lại tab TikTok. Dùng feed **For You/Following/Friends**, hoặc mở một video để URL có dạng `/@user/video/<id>`.
 3. Bấm logo VYRO: popup tự chọn TikTok khi liên lạc được với tab; bạn cũng có thể chọn **TikTok** trong mục nền tảng.
 4. Bật/tắt **Tự chuyển video** để điều khiển riêng TikTok. Cài đặt này không thay đổi công tắc YouTube.
-5. Để dùng đầy đủ controls, bấm **PiP riêng ↗** trên trang. Trong PiP: Skip, phát/tạm dừng, tắt/bật tiếng, tua và công tắc tự chuyển; hover để hiện controls.
+5. Để dùng đầy đủ controls, bấm logo VYRO rồi **Mở PiP** trong popup (từ 1.7.1). Trong PiP: Skip, phát/tạm dừng, tắt/bật tiếng, tua và công tắc tự chuyển; hover để hiện controls.
 6. Skip thủ công bằng phím hoặc nút vẫn hoạt động khi tắt tự chuyển. Phím đã tùy chỉnh dùng chung cho hai nền tảng.
 
 **Phạm vi beta:** video HTML5 trên TikTok desktop, feed `/`, `/foryou`, `/following`, `/friends` và trang video. Không tự điều khiển livestream, bài ảnh, trang hồ sơ hay video preview ở lưới Explore/search. Nếu ở Explore, bấm mở video trước. Không thao tác đăng nhập hoặc CAPTCHA thay người dùng.
@@ -113,7 +124,7 @@ TikTok có thể thay đổi DOM/player. Bản này chưa được kiểm chứn
 3. Mở [Facebook Reels](https://www.facebook.com/reels/) và phát một Reel. Hỗ trợ đường dẫn `/reel/<id>/`, `/reels/`, `/reels/<id>` và `/watch/reels/`.
 4. Mở popup: cần thấy **Phiên bản 1.6.0**, **Tab đã kết nối** và nền tảng **Facebook Reels**. Công tắc tự chuyển của Facebook độc lập với YouTube/TikTok.
 5. Video hết hoặc phát lặp từ đầu sẽ chuyển tiếp. Tắt công tắc để dừng tự chuyển; vẫn dùng được Skip thủ công.
-6. Bấm **PiP riêng ↗** để dùng cùng controls với YouTube: phát/tạm dừng, tắt/bật tiếng, Skip, tự chuyển, tua và về tab. Controls ẩn khi không hover/focus, video căn giữa và giữ tỷ lệ.
+6. Bấm logo VYRO rồi **Mở PiP** trong popup (từ 1.7.1) để dùng cùng controls với YouTube: phát/tạm dừng, tắt/bật tiếng, Skip, tự chuyển, tua và về tab. Controls ẩn khi không hover/focus, video căn giữa và giữ tỷ lệ.
 7. Skip bằng **Win/⌘ + /**, tổ hợp đã tùy chỉnh hoặc phím cấp Chrome. Click vào PiP riêng để phím cục bộ nhận focus; phím không can thiệp ô nhập bình luận.
 
 **Từ bản 1.6.0:** tự bỏ qua Reel có nhãn “Được tài trợ”/“Sponsored” (và nhãn quảng cáo tương đương tiếng Anh/Việt), ngay cả khi tắt tự chuyển clip thường. Chỉ kiểm tra nhãn trong Reel đang xem; bỏ qua nhãn ẩn và nội dung/bình luận nhắc tới quảng cáo. Khi dùng PiP riêng, tạm dừng quảng cáo, giữ cửa sổ và hiện thông báo chờ rồi phát tiếp clip thường với lựa chọn mute cũ. Điều hướng có cooldown, tối đa 8 lần thử trên cùng một mục; có thể bấm Skip để thử lại nếu bị kẹt. Cần test trên Facebook thật để xác nhận các bố cục/nhãn khác nhau.
@@ -153,6 +164,7 @@ YouTube/TikTok/Facebook có thể thay đổi cấu trúc trang khiến việc n
 ## Quyền và dữ liệu
 
 - Quyền `storage`: lưu cài đặt trên máy.
+- Từ bản 1.7.1: `activeTab` và `scripting` để thực thi lệnh mở/đóng PiP trong tab hiện tại sau khi bấm trong popup. Không thêm host chạy tự động ngoài các nền tảng đã hỗ trợ.
 - Content script chạy trên `https://www.youtube.com/*`, `https://youtube.com/*`, `https://www.tiktok.com/*`, `https://tiktok.com/*`, `https://www.facebook.com/*` và `https://facebook.com/*` để hỗ trợ điều hướng trong trang mà không tải lại. Chỉ xử lý Facebook trong các đường dẫn Reels được hỗ trợ; không xin quyền trên mọi website.
 - Không cần tài khoản VYRO, không có backend, không gửi dữ liệu xem video tới máy chủ, không tải/lưu video.
 

@@ -38,6 +38,7 @@ async function setup(platform = 'youtube') {
     click: () => { clicks++; }
   };
   const doc = {
+    exitPictureInPicture: async () => { doc.pictureInPictureElement = null; },
     hidden: false, videos: [first], buttons: [button], blockers: [], cards: [],
     querySelectorAll: selector => selector === 'video' ? doc.videos : selector === '#movie_player video' ? (doc.watchVideos || []) : (selector.includes('verify-page') || selector.includes('alertdialog')) ? doc.blockers :
       selector.includes('article') && selector.includes('feed-live') ? doc.cards : doc.buttons,
@@ -45,11 +46,12 @@ async function setup(platform = 'youtube') {
   };
   const location = { hostname: platform === 'tiktok' ? 'www.tiktok.com' : platform === 'facebook' ? 'www.facebook.com' : 'www.youtube.com',
     pathname: platform === 'tiktok' ? '/@creator/video/123456789' : platform === 'facebook' ? '/reel/123456789/' : '/shorts/one' };
-  vm.runInNewContext(tiktokSource + '\n' + facebookSource + '\n' + youtubePipSource + '\nVyroYouTubePip.create = () => ({ update() {} });\n' + shortcutSource + '\n' + source, {
-    URLSearchParams, location, document: doc, innerWidth: 1200, innerHeight: 800,
+  const controller = vm.runInNewContext(tiktokSource + '\n' + facebookSource + '\n' + youtubePipSource + '\nVyroYouTubePip.create = () => ({ update() {}, open: async () => { await document.watchVideos?.[0]?.requestPictureInPicture?.(); }, error: () => \"\" });\n' + shortcutSource + '\n' + source + '\nVyroPipController', {
+    URLSearchParams, documentPictureInPicture: { requestWindow: async () => ({}) }, location, document: doc, innerWidth: 1200, innerHeight: 800,
     performance: { now: () => clock },
     navigator: { platform: 'MacIntel' },
     ShortsPip: { create: options => { pipOptions = options; return {
+      open: async () => { pipOpen = true; }, close: () => { pipOpen = false; },
       update() { pipUpdates++; }, suspend() { suspensions++; }, isOpen: () => pipOpen, video: () => heldVideo, renderer: () => heldVideo ? renderer : null,
       anchor: () => heldAnchor, sourceIdentity: () => location.pathname
     }; } },
@@ -65,7 +67,7 @@ async function setup(platform = 'youtube') {
   });
   await Promise.resolve();
   return {
-    first, video, doc, renderer, location,
+    first, video, doc, renderer, location, controller,
     tick: () => tick(), advanceClock: ms => { clock += ms; },
     clicks: () => clicks,
     setEnabled: enabled => change({ [platform === 'tiktok' ? 'enabledTikTok' : platform === 'facebook' ? 'enabledFacebook' : 'enabled']: { newValue: enabled } }, 'local')
@@ -671,4 +673,45 @@ test('Facebook skips a plain sponsored label with arbitrary or absent CTA, even 
     assert.equal(app.pipUpdates(), updates);
     assert.equal(app.pipOptions().canMountVideo(app.first), false);
   }
+});
+
+test('popup controller opens/closes custom PiP on each short-video platform without changing auto or skipping', async () => {
+  for (const platform of ['youtube', 'tiktok', 'facebook']) {
+    const app = await setup(platform);
+    assert.equal(app.message({ type: 'vyro-status' }).pipCanOpen, true, platform);
+    const opened = await app.controller.setOpen(true);
+    assert.equal(opened.ok, true); assert.equal(opened.pipOpen, true);
+    assert.equal((await app.controller.setOpen(true)).pipOpen, true); // Idempotent desired state.
+    const closed = await app.controller.setOpen(false);
+    assert.equal(closed.ok, true); assert.equal(closed.pipOpen, false);
+    assert.equal(app.clicks(), 0);
+    assert.equal(app.written.length, 0);
+  }
+});
+
+test('popup controller opens/closes native YouTube PiP and serializes concurrent requests', async () => {
+  const app = await setup(); app.location.pathname = '/watch'; app.location.search = '?v=abc123';
+  app.doc.pictureInPictureEnabled = true; app.first.readyState = 3; app.first.videoWidth = 1920;
+  app.doc.watchVideos = [app.first];
+  let release;
+  app.first.requestPictureInPicture = () => new Promise(resolve => { release = () => { app.doc.pictureInPictureElement = app.first; resolve(); }; });
+  const opening = app.controller.setOpen(true);
+  assert.equal((await app.controller.setOpen(true)).ok, false);
+  release();
+  assert.equal((await opening).pipOpen, true);
+  assert.equal((await app.controller.setOpen(false)).pipOpen, false);
+  assert.equal((await app.controller.setOpen('toggle')).ok, false);
+  assert.equal(app.clicks(), 0);
+});
+
+test('popup controller rejects unsupported/no-video/ad opens but still allows closing an ad-waiting PiP', async () => {
+  const app = await setup('facebook');
+  addSponsoredLabel(app);
+  assert.equal((await app.controller.setOpen(true)).ok, false);
+  app.setPipOpen(true);
+  assert.equal((await app.controller.setOpen(false)).ok, true);
+  app.renderer.querySelectorAll = () => []; app.doc.videos = [];
+  assert.equal((await app.controller.setOpen(true)).ok, false);
+  app.doc.videos = [app.first]; app.location.pathname = '/stories/123';
+  assert.equal((await app.controller.setOpen(true)).ok, false);
 });

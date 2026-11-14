@@ -311,6 +311,21 @@
     nextShort(true);
   }
   document.addEventListener("keydown", onShortcut, true);
+  function canMountPipVideo(video) {
+    return isFacebook ? VyroFacebook.canMount(video) && !VyroFacebook.isSponsored(rendererOf(video), visibleArea) : !isTikTok ||
+      (!VyroTikTok.isLiveRoute(location.pathname) && !VyroTikTok.isPhotoRoute(location.pathname) &&
+        !VyroTikTok.isLive(VyroTikTok.container(video), video) && !VyroTikTok.isPhoto(VyroTikTok.container(video), video));
+  }
+  function pipStatus() {
+    const native = isYouTubeWatch();
+    const supported = isShorts() || native;
+    const video = native ? VyroYouTubePip.findVideo(document, getComputedStyle) : sourceVideo();
+    const canOpen = !!video && supported && (native
+      ? !!document.pictureInPictureEnabled && typeof video.requestPictureInPicture === "function" && video.readyState >= 1 && video.videoWidth > 0
+      : !!globalThis.documentPictureInPicture?.requestWindow && canMountPipVideo(video));
+    return { platform, supported, enabled, pipMode: native ? "native-youtube" : "custom",
+      hasVideo: !!video, pipControl: true, pipOpen: !!hasPip(), pipCanOpen: canOpen };
+  }
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     if (message?.type === "shorts-query-pip") {
       respond({ pip: (isShorts() || (isTikTok && skippingPost)) && !!hasPip() });
@@ -320,16 +335,13 @@
       if (ok) nextShort(true);
       respond({ ok });
     } else if (message?.type === "vyro-status") {
-      respond({ platform, supported: isShorts() || isYouTubeWatch(), enabled,
-        pipMode: isYouTubeWatch() ? "native-youtube" : "custom",
-        hasVideo: !!(isYouTubeWatch() ? VyroYouTubePip.findVideo(document, getComputedStyle) : currentVideo()) });
+      respond(pipStatus());
     }
   });
   pip = ShortsPip.create({
     isShorts, findVideo: sourceVideo,
     resumeOnSwitch: isFacebook,
-    canMountVideo: video => isFacebook ? VyroFacebook.canMount(video) && !VyroFacebook.isSponsored(rendererOf(video), visibleArea) : !isTikTok || (!VyroTikTok.isLiveRoute(location.pathname) && !VyroTikTok.isPhotoRoute(location.pathname) &&
-      !VyroTikTok.isLive(VyroTikTok.container(video), video) && !VyroTikTok.isPhoto(VyroTikTok.container(video), video)),
+    canMountVideo: canMountPipVideo,
     enabled: () => enabled,
     toggleAuto: () => chrome.storage.local.set({ [enabledKey]: !enabled }).catch(console.warn),
     rendererOf: video => adapter ? adapter.container(video) : video.closest("ytd-reel-video-renderer"),
@@ -341,6 +353,32 @@
   });
   pip.update();
   if (!adapter) watchPip = VyroYouTubePip.create();
+  let changingPip = false;
+  // Called in this extension's isolated world via scripting.executeScript so
+  // the popup's click activation reaches requestPictureInPicture/requestWindow.
+  globalThis.VyroPipController = {
+    async setOpen(desired) {
+      if (typeof desired !== "boolean" || changingPip) return { ...pipStatus(), ok: false, error: "PiP đang xử lý. Hãy thử lại." };
+      changingPip = true;
+      try {
+        const state = pipStatus();
+        if (state.pipOpen === desired) return { ...state, ok: true };
+        if (!desired) {
+          if (pip.isOpen()) pip.close();
+          if (document.pictureInPictureElement) await document.exitPictureInPicture();
+        } else {
+          if (!state.pipCanOpen) return { ...state, ok: false, error: "Hãy mở/phát một video được hỗ trợ rồi thử lại." };
+          if (isYouTubeWatch()) await watchPip.open();
+          else await pip.open();
+        }
+        const result = pipStatus();
+        return { ...result, ok: result.pipOpen === desired,
+          error: result.pipOpen === desired ? "" : (isYouTubeWatch() && watchPip.error?.()) || "Chưa mở/đóng được PiP. Hãy phát video rồi thử lại." };
+      } catch {
+        return { ...pipStatus(), ok: false, error: "Chrome chưa cho phép mở/đóng PiP. Hãy tải lại tab và thử lại." };
+      } finally { changingPip = false; }
+    }
+  };
   document.addEventListener("pointerdown", event => {
     if (event.target?.closest?.('input[type="range"], [role="slider"], [data-e2e*="seek"], [data-e2e*="progress"]')) {
       manualSeekUntil = performance.now() + 1500;

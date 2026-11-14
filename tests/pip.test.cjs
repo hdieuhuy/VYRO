@@ -70,15 +70,16 @@ function fixture(overrides = {}) {
   }
   return { api, sourceDoc, pipDoc, win, video, setSource: value => { source = value; },
     skips: () => skipCount, keyHandler,
-    open: async () => sourceDoc.body.children[0].events.click() };
+    open: async () => api.open() };
 }
 
 test('custom PiP moves the real video, provides controls and restores it on close', async () => {
   const app = fixture();
   const first = app.video(); first.setAttribute('style', 'width:500px');
   app.setSource(first);
-  await app.open();
+  await app.api.open();
   assert.equal(app.api.video(), first);
+  assert.equal(app.sourceDoc.body.children[0].hidden, true);
   assert.equal(first.parent.id, 'stage');
   assert.equal(app.api.anchor().getAttribute('data-vyro-pip-marker'), 'true');
   assert.equal(app.pipDoc.keydown, app.keyHandler);
@@ -95,7 +96,7 @@ test('custom PiP moves the real video, provides controls and restores it on clos
   const seek = app.pipDoc.getElementById('seek');
   seek.value = '500'; seek.events.input();
   assert.equal(first.currentTime, 60);
-  app.win.close();
+  app.api.close();
   assert.equal(app.api.isOpen(), false);
   assert.equal(first.parent, app.sourceDoc.body);
   assert.equal(first.getAttribute('style'), 'width:500px');

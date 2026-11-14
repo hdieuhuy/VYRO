@@ -28,3 +28,5 @@ button:disabled { cursor: wait; opacity: .6; }
 #platform { width:100%;font:inherit;color:inherit;background:white;border:1px solid #d8d0c5;border-radius:8px;padding:10px;margin-bottom:12px; }
 #platform:focus-visible { outline:3px solid #266fc7;outline-offset:3px; }
 .platform-link { display:inline-block;margin:12px 0 0 12px; }
+#pip-toggle { width:100%;margin:8px 0;padding:12px;border:1px solid #bd302a;border-radius:8px;background:#bd302a;color:white;font-weight:600; }
+#pip-toggle[aria-pressed="true"] { background:white;color:#a42b25; }

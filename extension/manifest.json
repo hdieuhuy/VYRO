@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "VYRO — YouTube, TikTok & Reels + PiP",
-  "version": "1.6.1",
+  "version": "1.7.1",
   "minimum_chrome_version": "116",
   "commands": {
     "skip-short": {
@@ -15,7 +15,9 @@
   },
   "description": "Tự chuyển Shorts, TikTok, Reels; PiP riêng với controls và PiP gốc Chrome cho video YouTube thường.",
   "permissions": [
-    "storage"
+    "storage",
+    "activeTab",
+    "scripting"
   ],
   "background": {
     "service_worker": "background.js"

@@ -58,8 +58,9 @@ globalThis.ShortsPip = {
     }
     const launch = document.createElement("button");
     launch.textContent = "PiP riêng ↗";
+    launch.hidden = true;
     launch.title = "Mở cửa sổ nổi với nút Skip và phím tắt riêng";
-    launch.style.cssText = "position:fixed;right:100px;bottom:24px;z-index:2147483647;border:1px solid #ffffff55;border-radius:24px;background:#bd302a;color:white;padding:12px 18px;font:600 14px system-ui;cursor:pointer;box-shadow:0 4px 18px #0005";
+    launch.style.cssText = "display:none!important";
     document.body.append(launch);
 
     function restore() {
@@ -103,7 +104,7 @@ globalThis.ShortsPip = {
     }
 
     function update() {
-      launch.hidden = !options.isShorts();
+      launch.hidden = true;
       if (!floating || floating.closed) return;
       if (!options.isShorts()) { floating.close(); return; }
       // YouTube may reuse a player or activate a different preloaded video.
@@ -261,6 +262,8 @@ globalThis.ShortsPip = {
     launch.addEventListener("click", open);
     return {
       update,
+      open,
+      close: () => floating?.close(),
       suspend,
       isOpen: () => !!floating && !floating.closed,
       video: () => moved?.video || null,

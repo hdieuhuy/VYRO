@@ -62,24 +62,26 @@ test('YouTube native PiP scopes to watch URLs with video IDs, not Shorts or prev
   app.location.pathname = '/shorts/abc'; app.api.update();
   assert.equal(app.button.hidden, true);
   app.location.pathname = '/watch'; app.api.update();
-  assert.equal(app.button.hidden, false);
+  assert.equal(app.button.hidden, true);
 });
 
 test('YouTube native PiP opens/toggles via the main video without reparenting, styling or changing playback', async () => {
   const app = fixture(); const video = app.video(); app.doc.videos = [video]; app.api.update();
   const parent = video.parentElement, style = video.style.cssText;
-  await app.button.events.click();
+  await app.api.open();
   assert.equal(app.requests(), 1);
   assert.equal(app.doc.pictureInPictureElement, video);
+  assert.equal(app.button.hidden, true);
   assert.equal(app.button.attributes['aria-pressed'], 'true');
   assert.match(app.button.textContent, /Đóng/);
   assert.equal(video.parentElement, parent);
   assert.equal(video.style.cssText, style);
   assert.equal(video.paused, false);
-  await app.button.events.click();
+  await app.doc.exitPictureInPicture();
   assert.equal(app.exits(), 1);
   assert.equal(app.doc.pictureInPictureElement, null);
   assert.equal(app.button.attributes['aria-pressed'], 'false');
+  assert.equal(app.button.hidden, true);
 });
 
 test('YouTube selects the main player over hidden/stale secondary videos and excludes recommendation selectors', () => {

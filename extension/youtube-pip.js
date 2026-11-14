@@ -25,7 +25,7 @@ globalThis.VyroYouTubePip = {
     button.id = 'vyro-youtube-pip'; button.type = 'button'; button.hidden = true;
     button.textContent = 'PiP YouTube ↗';
     button.title = 'Mở video YouTube trong cửa sổ nổi của Chrome';
-    button.style.cssText = 'position:fixed;right:24px;bottom:24px;z-index:2147483647;border:1px solid #ffffff55;border-radius:24px;background:#bd302a;color:white;padding:12px 18px;font:600 14px system-ui;cursor:pointer;box-shadow:0 4px 18px #0005';
+    button.style.cssText = 'display:none!important';
     document.body.append(button);
 
     const findVideo = () => api.findVideo(document, getComputedStyle);
@@ -48,9 +48,10 @@ globalThis.VyroYouTubePip = {
       video.addEventListener('emptied', refresh);
     }
     function update() {
-      button.hidden = !api.isPage(location);
+      const watchPage = api.isPage(location);
+      button.hidden = true;
       button.disabled = opening;
-      if (button.hidden) return;
+      if (!watchPage) return;
       const video = findVideo();
       observe(video);
       if (messageVideo !== video) message = '';
@@ -94,6 +95,6 @@ globalThis.VyroYouTubePip = {
     }
     button.addEventListener('click', open);
     update();
-    return { update, open, findVideo };
+    return { update, open, findVideo, error: () => message };
   }
 };

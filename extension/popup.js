@@ -5,6 +5,57 @@ const platformSelect = document.getElementById("platform");
 let selectedPlatform = "youtube";
 let settingsRequest = 0;
 let youtubeWatchTab = false;
+const pipToggle = document.getElementById("pip-toggle");
+const pipStatusText = document.getElementById("pip-control-status");
+let pipTabId = null, pipState = null, pipBusy = false, pipRequest = 0, pipError = "";
+function renderPip(state) {
+  pipState = state;
+  const available = state?.pipControl === true;
+  const open = available && state.pipOpen === true;
+  pipToggle.textContent = open ? "Đóng PiP" : "Mở PiP";
+  pipToggle.setAttribute("aria-pressed", String(open));
+  pipToggle.disabled = pipBusy || !available || (!open && !state.pipCanOpen);
+  pipStatusText.textContent = pipError || (!available
+    ? "Chưa kết nối điều khiển PiP. Reload VYRO và tải lại tab."
+    : open ? "Tab hiện tại · PiP đang mở."
+    : state.pipCanOpen ? "Tab hiện tại · PiP đã đóng."
+    : "Mở/phát một video được hỗ trợ để dùng PiP.");
+}
+async function refreshPip() {
+  if (pipTabId === null || pipBusy) return;
+  const request = ++pipRequest;
+  try {
+    const response = await chrome.tabs.sendMessage(pipTabId, { type: "vyro-status" });
+    if (request === pipRequest && !pipBusy) renderPip(response);
+  } catch {
+    if (request === pipRequest && !pipBusy) renderPip(null);
+  }
+}
+pipToggle.addEventListener("click", async () => {
+  if (pipBusy || pipToggle.disabled || pipTabId === null) return;
+  const desired = !pipState.pipOpen;
+  pipBusy = true; pipRequest++; pipError = "";
+  pipToggle.disabled = true;
+  pipToggle.textContent = desired ? "Đang mở PiP…" : "Đang đóng PiP…";
+  try {
+    // Invoke directly from this click, before any awaited tab query/message.
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: pipTabId }, world: "ISOLATED",
+      func: open => globalThis.VyroPipController?.setOpen(open) || {
+        ok: false, error: "Chưa kết nối điều khiển PiP. Reload VYRO và tải lại tab."
+      },
+      args: [desired]
+    });
+    const result = results?.[0]?.result;
+    if (!result?.ok) pipError = result?.error || "Chưa điều khiển được PiP. Hãy tải lại tab rồi thử lại.";
+    pipBusy = false;
+    renderPip(result?.pipControl ? result : pipState);
+  } catch {
+    pipError = "Chưa có quyền điều khiển PiP. Reload VYRO, kiểm tra quyền và tải lại tab.";
+    pipBusy = false; renderPip(pipState);
+  }
+});
+setInterval(refreshPip, 1000);
 document.getElementById("build-version").textContent = `Phiên bản ${chrome.runtime.getManifest().version}`;
 const enabledKey = () => selectedPlatform === "tiktok" ? "enabledTikTok" : selectedPlatform === "facebook" ? "enabledFacebook" : "enabled";
 const platformName = () => selectedPlatform === "tiktok" ? "TikTok" : selectedPlatform === "facebook" ? "Facebook Reels" : "YouTube Shorts";
@@ -75,17 +126,20 @@ async function initialize() {
     if (tab?.id !== undefined) {
       const response = await chrome.tabs.sendMessage(tab.id, { type: "vyro-status" });
       if (["youtube", "tiktok", "facebook"].includes(response?.platform)) {
+        pipTabId = tab.id;
+        renderPip(response);
         selectedPlatform = response.platform;
         youtubeWatchTab = response.pipMode === "native-youtube";
         connection.textContent = response.supported === false
           ? "Tab đã kết nối · PiP chưa hỗ trợ loại trang này. Hãy mở một video."
-          : youtubeWatchTab ? "Tab đã kết nối · Video YouTube thường: bấm PiP YouTube ↗ ở góc dưới bên phải trang để mở PiP gốc Chrome."
-          : "Tab đã kết nối · Nút PiP riêng nằm ở góc dưới bên phải trang video.";
+          : youtubeWatchTab ? "Tab đã kết nối · Video YouTube thường (PiP gốc Chrome): dùng Mở PiP/Đóng PiP bên dưới."
+          : "Tab đã kết nối · Dùng Mở PiP/Đóng PiP bên dưới.";
       } else throw new Error("No supported content script response");
     } else {
       throw new Error("No active tab");
     }
   } catch {
+    renderPip(null);
     connection.textContent = "Chưa kết nối được với tab. Nếu đang mở YouTube/TikTok/Facebook: Reload VYRO tại chrome://extensions, cho phép truy cập website và tải lại tab.";
   }
   platformSelect.value = selectedPlatform;

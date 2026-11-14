@@ -5,6 +5,22 @@
 - Thiết kế popup VYRO theo hướng tối, gọn, mạnh.
 - Tiếp tục nghiệm thu Facebook Reels beta trên trình duyệt thật.
 
+## [1.7.1] - 2026-11-14
+
+### Added
+- Nút Mở PiP/Đóng PiP ngay trong popup VYRO, điều khiển tab hiện tại và hiển thị trạng thái cửa sổ nổi.
+- Hỗ trợ PiP gốc Chrome của YouTube thường và PiP riêng của Shorts/Reels qua bộ điều khiển chung.
+- Quyền activeTab/scripting để thực thi thao tác PiP từ cú bấm trong popup.
+
+### Changed
+- Ẩn hẳn các nút PiP nổi ở góc phải dưới trang, cả trước, trong và sau khi dùng PiP. Giữ controls bên trong cửa sổ nổi.
+- Đồng bộ trạng thái khi đóng PiP bên ngoài; chặn thao tác trùng và báo lỗi quyền/kết nối.
+- Chọn nền tảng để chỉnh cài đặt không thay đổi tab nhận lệnh PiP; không mở PiP khi chưa có video được hỗ trợ.
+
+### Validation
+- 106 kiểm tra tự động đạt. Môi trường phát triển chưa kiểm chứng trực tiếp trên Chrome thật.
+- Release kèm ZIP theo phiên bản, `vyro.zip` và SHA-256. Bao gồm các thay đổi local 1.6.2/1.7.0 chưa phát hành riêng.
+
 ## [1.6.1] - 2026-11-12
 
 ### Fixed
